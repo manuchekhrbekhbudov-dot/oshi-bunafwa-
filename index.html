@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="tg">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+</head>
+<body>
+<!--BODY-START-->
+<title>Оши Бунафша</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Оши Бунафша — ош ва таомҳои миллӣ дар Душанбе, Гипрозем. Фармоиш тавассути WhatsApp.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=PT+Serif:wght@400;700&family=PT+Sans:wght@400;700&display=swap">
+<style>
+/* Layout: violet hero band with bunafsha-flower pattern → sticky category tabs → menu → how-to-order → fixed cart bar + checkout sheet */
+:root{
+  --bg:#f7f5fa; --surface:#ffffff; --fg:#221a2e; --muted:#675c75; --line:#e5dfee;
+  --plum:#3a1e5a; --plum-fg:#f6f1fb; --saffron:#d99a1e; --vio:#6b3fa0; --vio-fg:#ffffff;
+  --wa:#1d8a4b; --wa-fg:#ffffff; --warn-bg:#fff5df; --warn-fg:#6b4a00;
+  --display:"PT Serif",Georgia,"Times New Roman",serif;
+  --body:"PT Sans","Segoe UI",Roboto,Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#130e1b; --surface:#1d1628; --fg:#efe9f6; --muted:#ab9fbd; --line:#332842;
+  --plum:#24133a; --plum-fg:#f6f1fb; --saffron:#e8ad3a; --vio:#b08be6; --vio-fg:#170d24;
+  --wa:#2fae63; --wa-fg:#06170c; --warn-bg:#2f2410; --warn-fg:#f3d79a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#130e1b; --surface:#1d1628; --fg:#efe9f6; --muted:#ab9fbd; --line:#332842;
+  --plum:#24133a; --plum-fg:#f6f1fb; --saffron:#e8ad3a; --vio:#b08be6; --vio-fg:#170d24;
+  --wa:#2fae63; --wa-fg:#06170c; --warn-bg:#2f2410; --warn-fg:#f3d79a; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.5;padding-bottom:96px}
+[hidden]{display:none!important}
+.wrap{max-width:860px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.15}
+button{font:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--saffron);outline-offset:2px}
+
+.hero{background:var(--plum);color:var(--plum-fg);position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:0;opacity:.2;pointer-events:none;
+  background:
+    radial-gradient(circle at 50% 50%, var(--saffron) 0 4px, transparent 5px),
+    radial-gradient(circle at 50% 38%, #b48ae6 0 6px, transparent 7px),
+    radial-gradient(circle at 62% 54%, #b48ae6 0 6px, transparent 7px),
+    radial-gradient(circle at 38% 54%, #b48ae6 0 6px, transparent 7px);
+  background-size:64px 64px}
+.hero .wrap{position:relative;padding-block:22px 34px;display:grid;gap:14px}
+.top{display:flex;justify-content:flex-end}
+.lang{display:inline-flex;border:1.5px solid rgba(255,255,255,.5);border-radius:99px;overflow:hidden}
+.lang button{background:transparent;border:0;color:var(--plum-fg);padding:5px 14px;font-weight:700;font-size:14px}
+.lang button.on{background:var(--plum-fg);color:var(--plum)}
+.eyebrow{text-transform:uppercase;letter-spacing:.14em;font-size:13px;color:var(--saffron);font-weight:700}
+.hero h1{font-size:clamp(40px,9vw,68px)}
+.hero p{margin:0;max-width:52ch;opacity:.92}
+.facts{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:15px}
+.pill{background:rgba(255,255,255,.12);padding:2px 10px;border-radius:99px}
+.cta{display:flex;flex-wrap:wrap;gap:10px;margin-top:4px}
+.btn{border:0;border-radius:10px;padding:12px 18px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn-sf{background:var(--saffron);color:#24170a}
+.btn-ghost{background:transparent;color:inherit;border:1.5px solid currentColor}
+.btn-wa{background:var(--wa);color:var(--wa-fg)}
+.btn-vio{background:var(--vio);color:var(--vio-fg)}
+
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.tabs .wrap{display:flex;gap:6px;overflow-x:auto;padding-block:10px;scrollbar-width:none}
+.tabs a{flex:none;text-decoration:none;color:var(--muted);padding:7px 14px;border-radius:99px;font-weight:700;font-size:15px;border:1px solid var(--line)}
+.tabs a.on{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+
+main .wrap{display:grid;gap:36px;padding-block:24px}
+.notice{background:var(--warn-bg);color:var(--warn-fg);border-radius:12px;padding:14px 16px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
+.notice p{margin:0;flex:1 1 260px}
+section h2{font-size:28px;margin-bottom:4px}
+.item{display:grid;grid-template-columns:1fr auto;gap:4px 16px;padding:14px 0;border-bottom:1px dashed var(--line);align-items:center}
+.item>div{min-width:0}
+.item h3{font-size:19px}
+.item p{margin:2px 0 0;color:var(--muted);font-size:15px}
+.price{font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}
+.price.soon{color:var(--muted);font-weight:400;font-size:14px}
+.item .ctrl{grid-column:1/-1;display:flex;justify-content:flex-end}
+.add{background:var(--surface);border:1.5px solid var(--fg);color:var(--fg);border-radius:8px;padding:6px 14px;font-weight:700}
+.step{display:flex;align-items:center;border:1.5px solid var(--vio);border-radius:8px;overflow:hidden}
+.step button{background:var(--vio);color:var(--vio-fg);border:0;width:34px;height:34px;font-size:20px;line-height:1}
+.step output{min-width:32px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums}
+
+.how{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));counter-reset:s}
+.how div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;counter-increment:s}
+.how div::before{content:counter(s);display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--vio);color:var(--vio-fg);font-weight:700;margin-bottom:8px}
+.how b{display:block;font-size:17px}
+.how span{color:var(--muted);font-size:15px}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:grid;gap:4px}
+.row{display:flex;justify-content:space-between;gap:12px;border-bottom:1px dashed var(--line);padding:8px 0;flex-wrap:wrap}
+.row:last-child{border-bottom:0}
+.row>span:first-child{color:var(--muted)}
+.copyable{display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap}
+.copyable code{font-family:var(--body);font-weight:700;font-size:17px;user-select:all;font-variant-numeric:tabular-nums}
+.mini{background:transparent;border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:3px 10px;font-size:13px}
+
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--fg);color:var(--bg);
+  padding:12px max(16px,env(safe-area-inset-right,0px)) calc(12px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.bar .in{max-width:860px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.bar b{font-variant-numeric:tabular-nums}
+.scrim{position:fixed;inset:0;background:rgba(12,6,20,.6);z-index:30}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:31;background:var(--surface);border-radius:18px 18px 0 0;max-height:90%;overflow:auto;
+  padding:18px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.sheet .in{max-width:620px;margin:0 auto;display:grid;gap:16px}
+.sheet header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.sheet h2{font-size:24px}
+.code{font-family:var(--body);font-size:14px;color:var(--muted);font-weight:400}
+.close{background:transparent;border:0;color:var(--fg);font-size:30px;line-height:1}
+.line{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px dashed var(--line)}
+.line span:first-child{min-width:0}
+.totals>div{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums;padding:3px 0;gap:12px}
+.totals .grand{font-weight:700;font-size:18px;border-top:1px solid var(--line);padding-top:8px;margin-top:4px}
+.totals .pre{font-weight:700;font-size:20px;color:var(--vio)}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{flex:1;background:transparent;border:0;padding:10px;color:var(--muted);font-weight:700}
+.seg button.on{background:var(--fg);color:var(--bg)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+label{display:grid;gap:4px;font-size:14px;font-weight:700;color:var(--muted)}
+input,select,textarea{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;width:100%}
+textarea{resize:vertical;min-height:60px}
+.paybox{border:2px solid var(--vio);border-radius:14px;padding:16px;display:grid;gap:10px}
+.paybox h3{font-size:19px}
+.paybox ol{margin:0;padding-left:20px;display:grid;gap:6px}
+.err{color:#c62a3f;font-weight:700;font-size:14px;margin:0}
+.note{font-size:13px;color:var(--muted);margin:0}
+.preview{white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;font-size:14px;margin:8px 0}
+footer{color:var(--muted);font-size:14px;padding-block:4px 24px}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:up .22s ease-out}@keyframes up{from{transform:translateY(30px);opacity:.6}}}
+</style>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="top"><div class="lang" role="group" aria-label="Забон / Язык"><button type="button" data-lang="tj">Тоҷ</button><button type="button" data-lang="ru">Рус</button></div></div>
+    <div class="eyebrow" data-i="eyebrow">Ош ва таомҳои миллӣ · Душанбе</div>
+    <h1>Оши Бунафша</h1>
+    <p data-i="lead">Оши палов аз деги калон, нони гарм ва чойи хуш. Фармоиш диҳед, мо тайёр карда мерасонем.</p>
+    <div class="facts">
+      <span class="pill" id="hoursPill" hidden></span>
+      <span>📍 <span data-i="addr">ш. Душанбе, Гипрозем</span></span>
+      <span>📞 +992 55 025 5552</span>
+    </div>
+    <div class="cta">
+      <a class="btn btn-sf" href="#menu" data-i="ctaMenu">Меню</a>
+      <a class="btn btn-ghost" id="waHero" href="https://wa.me/992550255552" target="_blank" rel="noopener">WhatsApp</a>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs" aria-label="Menu"><div class="wrap" id="tabs"></div></nav>
+
+<main id="menu"><div class="wrap">
+  <div class="notice" id="noPrices" hidden>
+    <p data-i="noPrices">Нархҳо ба зудӣ дар сайт пайдо мешаванд. Ҳоло фармоишро бевосита дар WhatsApp диҳед.</p>
+    <a class="btn btn-wa" id="waNotice" href="https://wa.me/992550255552" target="_blank" rel="noopener" data-i="writeWa">Ба WhatsApp навиштан</a>
+  </div>
+  <div id="sections" style="display:grid;gap:32px"></div>
+
+  <section id="how">
+    <h2 data-i="howTitle">Чӣ тавр фармоиш медиҳед</h2>
+    <div class="how" style="margin-top:12px">
+      <div><b data-i="h1b">Таомро интихоб кунед</b><span data-i="h1s">Ба сабад илова кунед ва маълумоти худро нависед.</span></div>
+      <div><b data-i="h2b">50% пешакӣ пардохт кунед</b><span data-i="h2s">Ба рақами Алиф, ДС ё корт гузаронед ва чекро скриншот кунед.</span></div>
+      <div><b data-i="h3b">Ба WhatsApp фиристед</b><span data-i="h3s">Паёми тайёр ва скриншоти чекро фиристед.</span></div>
+      <div><b data-i="h4b">Фармоиш қабул мешавад</b><span data-i="h4s">Админ пардохтро месанҷад ва фармоишро тасдиқ мекунад. Боқимондаро ҳангоми гирифтан медиҳед.</span></div>
+    </div>
+  </section>
+
+  <section id="contact">
+    <h2 data-i="contact">Тамос</h2>
+    <div class="card" style="margin-top:12px">
+      <div class="row"><span>WhatsApp</span><span class="copyable"><code>+992 55 025 5552</code><button class="mini" type="button" data-copy="+992 55 025 5552" data-i="copy">Нусха</button></span></div>
+      <div class="row"><span data-i="addrL">Суроға</span><span data-i="addr">ш. Душанбе, Гипрозем</span></div>
+      <div class="row" id="hoursRow" hidden><span data-i="hoursL">Соатҳои корӣ</span><span id="hoursTxt"></span></div>
+      <div class="row"><span data-i="prepayL">Пешпардохт</span><span id="prepayTxt">50%</span></div>
+    </div>
+  </section>
+
+  <footer>© Оши Бунафша · <span data-i="currency">Нархҳо бо сомонӣ</span></footer>
+</div></main>
+
+<div class="bar" id="bar" hidden>
+  <div class="in">
+    <span><b id="barCount">0</b> · <b id="barSum">0</b> <span data-i="smn">смн</span></span>
+    <button class="btn btn-sf" type="button" id="openCart" data-i="checkout">Фармоиш додан →</button>
+  </div>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden>
+  <div class="in">
+    <header><h2 id="sheetTitle"><span data-i="yourOrder">Фармоиши шумо</span> <span class="code" id="codeTxt"></span></h2><button class="close" type="button" id="closeCart" aria-label="×">×</button></header>
+    <div id="lines"></div>
+    <div class="seg" role="group">
+      <button type="button" data-mode="delivery" data-i="delivery">🛵 Расонидан</button>
+      <button type="button" data-mode="pickup" data-i="pickup">🥡 Худам мебарам</button>
+    </div>
+    <div class="grid2">
+      <label for="oName"><span data-i="name">Ном</span><input id="oName" autocomplete="name"></label>
+      <label for="oPhone"><span data-i="phone">Телефон</span><input id="oPhone" type="tel" autocomplete="tel" placeholder="+992"></label>
+    </div>
+    <label for="oAddr" id="addrWrap"><span data-i="address">Суроға</span><input id="oAddr" data-iph="addrPh"></label>
+    <label for="oNote"><span data-i="note">Эзоҳ</span><textarea id="oNote" data-iph="notePh"></textarea></label>
+    <div class="totals" id="totals"></div>
+
+    <div class="paybox">
+      <h3 data-i="payTitle">Пешпардохт</h3>
+      <div id="payList" class="card" style="padding:4px 14px"></div>
+      <ol>
+        <li id="payStep1"></li>
+        <li data-i="pay2">Скриншоти чекро гиред.</li>
+        <li data-i="pay3">Тугмаи WhatsApp-ро пахш кунед, паёмро фиристед ва скриншотро илова кунед.</li>
+        <li data-i="pay4">Пас аз санҷиши пардохт админ фармоишро тасдиқ мекунад.</li>
+      </ol>
+    </div>
+
+    <p class="err" id="oErr" hidden></p>
+    <a class="btn btn-wa" id="oWa" href="#" target="_blank" rel="noopener" data-i="sendWa">Фиристодан ба WhatsApp</a>
+    <details><summary data-i="seeMsg">Паёмро бинед</summary><pre class="preview" id="preview"></pre><button class="mini" type="button" id="copyMsg" data-i="copy">Нусха</button></details>
+    <p class="note" data-i="waNote">Агар WhatsApp кушода нашавад, паёмро нусха гиред ва ба +992 55 025 5552 фиристед.</p>
+  </div>
+</div>
+
+<script>
+const WA = "992550255552";
+const FALLBACK = {"prepay":50,"deliveryFee":null,"hours":"","pay":[],"cats":[],"items":[]};
+
+const T = {
+ tj:{eyebrow:"Ош ва таомҳои миллӣ · Душанбе",lead:"Оши палов аз деги калон, нони гарм ва чойи хуш. Фармоиш диҳед, мо тайёр карда мерасонем.",
+  addr:"ш. Душанбе, Гипрозем",addrL:"Суроға",ctaMenu:"Меню",noPrices:"Нархҳо ба зудӣ дар сайт пайдо мешаванд. Ҳоло фармоишро бевосита дар WhatsApp диҳед.",
+  writeWa:"Ба WhatsApp навиштан",howTitle:"Чӣ тавр фармоиш медиҳед",
+  h1b:"Таомро интихоб кунед",h1s:"Ба сабад илова кунед ва маълумоти худро нависед.",
+  h2b:"50% пешакӣ пардохт кунед",h2s:"Ба рақами Алиф, ДС ё корт гузаронед ва чекро скриншот кунед.",
+  h3b:"Ба WhatsApp фиристед",h3s:"Паёми тайёр ва скриншоти чекро фиристед.",
+  h4b:"Фармоиш қабул мешавад",h4s:"Админ пардохтро месанҷад ва фармоишро тасдиқ мекунад. Боқимондаро ҳангоми гирифтан медиҳед.",
+  contact:"Тамос",copy:"Нусха",copied:"Нусха шуд ✓",hoursL:"Соатҳои корӣ",prepayL:"Пешпардохт",currency:"Нархҳо бо сомонӣ",
+  smn:"смн",checkout:"Фармоиш додан →",yourOrder:"Фармоиши шумо",delivery:"🛵 Расонидан",pickup:"🥡 Худам мебарам",
+  name:"Ном",phone:"Телефон",address:"Суроға",addrPh:"Кӯча, хона, ошёна, нишона",note:"Эзоҳ",notePh:"Масалан: бе пиёз",
+  payTitle:"Пешпардохт",pay2:"Скриншоти чекро гиред.",pay3:"Тугмаи WhatsApp-ро пахш кунед, паёмро фиристед ва скриншотро илова кунед.",
+  pay4:"Пас аз санҷиши пардохт админ фармоишро тасдиқ мекунад.",sendWa:"Фиристодан ба WhatsApp",seeMsg:"Паёмро бинед",
+  waNote:"Агар WhatsApp кушода нашавад, паёмро нусха гиред ва ба +992 55 025 5552 фиристед.",
+  soon:"нарх ба зудӣ",add:"+ Илова",dishes:"Таомҳо",fee:"Расонидан",feeAsk:"админ мегӯяд",total:"Ҳамагӣ",
+  pre:"Ҳозир пардохт",rest:"Ҳангоми гирифтан",payStep1:p=>`${p} сомониро ба яке аз рақамҳои боло гузаронед.`,
+  payStep1None:p=>`${p} сомонӣ пешакӣ лозим аст. Рақами пардохтро админ дар WhatsApp мефиристад.`,
+  fill:"Лутфан пур кунед: ",fName:"ном",fPhone:"телефон",fAddr:"суроға",open:"Ҳозир кушода",closed:"Ҳозир баста",
+  m:{head:"ОШИ БУНАФША · Фармоиш",dishes:"Таомҳо",fee:"Расонидан",total:"Ҳамагӣ",pre:"Пешпардохт",rest:"Боқимонда",
+   name:"Ном",phone:"Тел",mode:"Тарз",del:"Расонидан",pick:"Худаш мебарад",addr:"Суроға",note:"Эзоҳ",ask:"аниқ карда шавад",
+   tail:"Скриншоти пардохтро замима мекунам."}},
+ ru:{eyebrow:"Плов и национальная кухня · Душанбе",lead:"Плов из большого казана, горячие лепёшки и душистый чай. Закажите, мы приготовим и привезём.",
+  addr:"г. Душанбе, Гипрозем",addrL:"Адрес",ctaMenu:"Меню",noPrices:"Цены скоро появятся на сайте. Пока что заказывайте напрямую в WhatsApp.",
+  writeWa:"Написать в WhatsApp",howTitle:"Как сделать заказ",
+  h1b:"Выберите блюда",h1s:"Добавьте в корзину и укажите свои данные.",
+  h2b:"Оплатите 50% заранее",h2s:"Переведите на Алиф, ДС или карту и сделайте скриншот чека.",
+  h3b:"Отправьте в WhatsApp",h3s:"Отправьте готовое сообщение и скриншот чека.",
+  h4b:"Заказ принят",h4s:"Админ проверит оплату и подтвердит заказ. Остаток оплачиваете при получении.",
+  contact:"Контакты",copy:"Копировать",copied:"Скопировано ✓",hoursL:"Часы работы",prepayL:"Предоплата",currency:"Цены в сомони",
+  smn:"смн",checkout:"Оформить заказ →",yourOrder:"Ваш заказ",delivery:"🛵 Доставка",pickup:"🥡 Самовывоз",
+  name:"Имя",phone:"Телефон",address:"Адрес",addrPh:"Улица, дом, этаж, ориентир",note:"Комментарий",notePh:"Например: без лука",
+  payTitle:"Предоплата",pay2:"Сделайте скриншот чека.",pay3:"Нажмите кнопку WhatsApp, отправьте сообщение и прикрепите скриншот.",
+  pay4:"После проверки оплаты админ подтвердит заказ.",sendWa:"Отправить в WhatsApp",seeMsg:"Показать сообщение",
+  waNote:"Если WhatsApp не открылся, скопируйте сообщение и отправьте на +992 55 025 5552.",
+  soon:"цена скоро",add:"+ Добавить",dishes:"Блюда",fee:"Доставка",feeAsk:"уточнит админ",total:"Итого",
+  pre:"Оплатить сейчас",rest:"При получении",payStep1:p=>`Переведите ${p} сомони на один из номеров выше.`,
+  payStep1None:p=>`Нужна предоплата ${p} сомони. Номер для оплаты админ пришлёт в WhatsApp.`,
+  fill:"Пожалуйста, заполните: ",fName:"имя",fPhone:"телефон",fAddr:"адрес",open:"Сейчас открыто",closed:"Сейчас закрыто",
+  m:{head:"ОШИ БУНАФША · Заказ",dishes:"Блюда",fee:"Доставка",total:"Итого",pre:"Предоплата",rest:"Остаток",
+   name:"Имя",phone:"Тел",mode:"Способ",del:"Доставка",pick:"Самовывоз",addr:"Адрес",note:"Комментарий",ask:"уточнить",
+   tail:"Скриншот оплаты прикрепляю."}}
+};
+
+const $ = id => document.getElementById(id);
+const store = { get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;}},
+                set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}} };
+let M = FALLBACK, lang = store.get("ob-lang","tj"), cart = store.get("ob-cart",{}), mode="delivery", code="";
+const t = k => T[lang][k];
+const L = o => o[lang] || o.tj;
+const priced = i => i.on !== false && typeof i.price === "number" && i.price > 0;
+const byId = () => Object.fromEntries(M.items.map(i=>[i.id,i]));
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function applyLang(){
+  document.documentElement.lang = lang==="ru"?"ru":"tg";
+  document.querySelectorAll("[data-i]").forEach(el=>{const v=t(el.dataset.i); if(typeof v==="string") el.textContent=v;});
+  document.querySelectorAll("[data-iph]").forEach(el=>el.placeholder=t(el.dataset.iph));
+  document.querySelectorAll("[data-lang]").forEach(b=>b.classList.toggle("on",b.dataset.lang===lang));
+  const wa = `https://wa.me/${WA}?text=${encodeURIComponent(lang==="ru"?"Здравствуйте! Хочу сделать заказ.":"Салом! Мехоҳам фармоиш диҳам.")}`;
+  $("waHero").href = wa; $("waNotice").href = wa;
+}
+function renderMenu(){
+  const items = M.items.filter(i=>i.on!==false);
+  const cats = M.cats.filter(c=>items.some(i=>i.cat===c.id));
+  $("tabs").innerHTML = cats.map((c,n)=>`<a href="#c-${c.id}" data-tab="c-${c.id}" class="${n?"":"on"}">${esc(L(c))}</a>`).join("");
+  $("sections").innerHTML = cats.map(c=>`
+    <section id="c-${c.id}"><h2>${esc(L(c))}</h2>
+      ${items.filter(i=>i.cat===c.id).map(i=>`
+      <div class="item">
+        <div><h3>${esc(L(i))}</h3>${(lang==="ru"?i.dru:i.dtj)?`<p>${esc(lang==="ru"?i.dru:i.dtj)}</p>`:""}</div>
+        ${priced(i)?`<div class="price">${i.price} ${t("smn")}</div>`:`<div class="price soon">${t("soon")}</div>`}
+        ${priced(i)?`<div class="ctrl" data-ctrl="${i.id}"></div>`:""}
+      </div>`).join("")}
+    </section>`).join("");
+  $("noPrices").hidden = items.some(priced);
+  observeTabs();
+  renderCart();
+}
+function totals(){
+  const ix=byId(); let count=0,sum=0;
+  for(const k in cart){count+=cart[k];sum+=cart[k]*ix[k].price;}
+  const feeKnown = typeof M.deliveryFee==="number";
+  const fee = mode==="delivery" && feeKnown ? M.deliveryFee : 0;
+  const total = sum+fee, pre = Math.ceil(total*(M.prepay||50)/100);
+  return {count,sum,fee,feeKnown,total,pre,rest:total-pre};
+}
+function renderCart(){
+  const ix=byId();
+  for(const k in cart) if(!ix[k]||!priced(ix[k])||cart[k]<=0) delete cart[k];
+  store.set("ob-cart",cart);
+  document.querySelectorAll("[data-ctrl]").forEach(el=>{
+    const q=cart[el.dataset.ctrl]||0, id=el.dataset.ctrl;
+    el.innerHTML = q ? `<div class="step"><button type="button" data-dec="${id}" aria-label="−">−</button><output>${q}</output><button type="button" data-inc="${id}" aria-label="+">+</button></div>`
+                     : `<button type="button" class="add" data-inc="${id}">${t("add")}</button>`;
+  });
+  const s=totals();
+  $("bar").hidden = !s.count;
+  $("barCount").textContent = s.count+" ×"; $("barSum").textContent = s.sum;
+  if(!s.count) closeSheet(); else if(!$("sheet").hidden) renderSheet();
+}
+function message(){
+  const ix=byId(), s=totals(), m=T[lang].m;
+  const out=[`🟣 ${m.head} #${code}`,"",`${m.dishes}:`];
+  for(const k in cart) out.push(`• ${L(ix[k])} × ${cart[k]} = ${cart[k]*ix[k].price} смн`);
+  out.push("");
+  if(mode==="delivery") out.push(`${m.fee}: ${s.feeKnown?s.fee+" смн":m.ask}`);
+  out.push(`${m.total}: ${s.total} смн`, `${m.pre} ${M.prepay||50}%: ${s.pre} смн`, `${m.rest}: ${s.rest} смн`, "",
+    `${m.name}: ${$("oName").value.trim()}`, `${m.phone}: ${$("oPhone").value.trim()}`,
+    `${m.mode}: ${mode==="delivery"?m.del:m.pick}`);
+  if(mode==="delivery") out.push(`${m.addr}: ${$("oAddr").value.trim()}`);
+  if($("oNote").value.trim()) out.push(`${m.note}: ${$("oNote").value.trim()}`);
+  out.push("", m.tail);
+  return out.join("\n");
+}
+function renderSheet(){
+  const ix=byId(), s=totals();
+  $("codeTxt").textContent = "#"+code;
+  $("lines").innerHTML = Object.keys(cart).map(k=>`
+    <div class="line"><span>${esc(L(ix[k]))}</span>
+      <div class="step"><button type="button" data-dec="${k}" aria-label="−">−</button><output>${cart[k]}</output><button type="button" data-inc="${k}" aria-label="+">+</button></div>
+      <b class="price">${cart[k]*ix[k].price} ${t("smn")}</b></div>`).join("");
+  $("totals").innerHTML = `
+    <div><span>${t("dishes")}</span><span>${s.sum} ${t("smn")}</span></div>
+    ${mode==="delivery"?`<div><span>${t("fee")}</span><span>${s.feeKnown?s.fee+" "+t("smn"):t("feeAsk")}</span></div>`:""}
+    <div class="grand"><span>${t("total")}</span><span>${s.total} ${t("smn")}</span></div>
+    <div class="pre"><span>${t("pre")} (${M.prepay||50}%)</span><span>${s.pre} ${t("smn")}</span></div>
+    <div><span>${t("rest")}</span><span>${s.rest} ${t("smn")}</span></div>`;
+  $("addrWrap").hidden = mode!=="delivery";
+  document.querySelectorAll("[data-mode]").forEach(b=>b.classList.toggle("on",b.dataset.mode===mode));
+  const methods=(M.pay||[]).filter(p=>p.number && p.number.trim());
+  $("payList").hidden = !methods.length;
+  $("payList").innerHTML = methods.map(p=>`<div class="row"><span>${esc(p.name)}</span><span class="copyable"><code>${esc(p.number)}</code><button class="mini" type="button" data-copy="${esc(p.number)}">${t("copy")}</button></span></div>`).join("");
+  $("payStep1").textContent = methods.length ? t("payStep1")(s.pre) : t("payStep1None")(s.pre);
+  const msg=message(); $("preview").textContent=msg;
+  $("oWa").href=`https://wa.me/${WA}?text=${encodeURIComponent(msg)}`;
+}
+function openSheet(){
+  if(!code) code="Б-"+(1000+Math.floor(Math.random()*9000));
+  $("sheet").hidden=false; $("scrim").hidden=false; renderSheet();
+}
+function closeSheet(){ $("sheet").hidden=true; $("scrim").hidden=true; }
+
+document.addEventListener("click",e=>{
+  const inc=e.target.closest("[data-inc]"), dec=e.target.closest("[data-dec]"), lg=e.target.closest("[data-lang]"),
+        md=e.target.closest("[data-mode]"), cp=e.target.closest("[data-copy]");
+  if(inc){cart[inc.dataset.inc]=(cart[inc.dataset.inc]||0)+1; renderCart();}
+  else if(dec){cart[dec.dataset.dec]--; renderCart();}
+  else if(lg){lang=lg.dataset.lang; store.set("ob-lang",lang); applyLang(); renderMenu(); renderHours(); if(!$("sheet").hidden) renderSheet();}
+  else if(md){mode=md.dataset.mode; renderSheet();}
+  else if(cp){copy(cp.dataset.copy,cp);}
+});
+$("openCart").onclick=openSheet; $("closeCart").onclick=closeSheet; $("scrim").onclick=closeSheet;
+document.addEventListener("keydown",e=>{if(e.key==="Escape") closeSheet();});
+["oName","oPhone","oAddr","oNote"].forEach(id=>$(id).addEventListener("input",()=>{renderSheet(); store.set("ob-who",{n:$("oName").value,p:$("oPhone").value,a:$("oAddr").value});}));
+(function(){const w=store.get("ob-who",{}); $("oName").value=w.n||""; $("oPhone").value=w.p||""; $("oAddr").value=w.a||"";})();
+$("oWa").addEventListener("click",e=>{
+  const miss=[]; if(!$("oName").value.trim()) miss.push(t("fName")); if(!$("oPhone").value.trim()) miss.push(t("fPhone"));
+  if(mode==="delivery"&&!$("oAddr").value.trim()) miss.push(t("fAddr"));
+  if(miss.length){e.preventDefault(); $("oErr").textContent=t("fill")+miss.join(", "); $("oErr").hidden=false; return;}
+  $("oErr").hidden=true;
+  setTimeout(()=>{cart={}; code=""; renderCart();},1500);
+});
+$("copyMsg").onclick=e=>copy(message(),e.currentTarget);
+function copy(text,btn){
+  const o=btn.textContent;
+  try{navigator.clipboard.writeText(text).then(()=>{btn.textContent=t("copied");setTimeout(()=>btn.textContent=o,1500);},()=>{});}catch(e){}
+}
+function renderHours(){
+  const h=(M.hours||"").trim(); $("hoursPill").hidden=$("hoursRow").hidden=!h;
+  $("prepayTxt").textContent=(M.prepay||50)+"%";
+  if(!h) return;
+  $("hoursTxt").textContent=h;
+  const mm=h.match(/(\d{1,2}):(\d{2})\s*[–-]\s*(\d{1,2}):(\d{2})/);
+  let txt="⏰ "+h;
+  if(mm){
+    const now=new Intl.DateTimeFormat("en-GB",{hour:"2-digit",minute:"2-digit",hourCycle:"h23",timeZone:"Asia/Dushanbe"}).format(new Date()).split(":").map(Number);
+    const n=now[0]*60+now[1], a=+mm[1]*60+ +mm[2], b=+mm[3]*60+ +mm[4];
+    const open = b>a ? (n>=a&&n<b) : (n>=a||n<b);
+    txt=(open?"🟢 "+t("open"):"🔴 "+t("closed"))+" · "+h;
+  }
+  $("hoursPill").textContent=txt;
+}
+let io;
+function observeTabs(){
+  if(io) io.disconnect();
+  const tabs=[...document.querySelectorAll("[data-tab]")];
+  io=new IntersectionObserver(es=>es.forEach(en=>{ if(en.isIntersecting){
+    tabs.forEach(x=>x.classList.toggle("on",x.dataset.tab===en.target.id));
+    const on=tabs.find(x=>x.dataset.tab===en.target.id); on&&on.scrollIntoView({block:"nearest",inline:"center"});
+  }}),{rootMargin:"-30% 0px -60% 0px"});
+  document.querySelectorAll("#sections section").forEach(s=>io.observe(s));
+}
+
+applyLang();
+fetch("menu.json",{cache:"no-store"}).then(r=>r.ok?r.json():Promise.reject()).then(d=>{M=d;}).catch(()=>{}).finally(()=>{renderMenu(); renderHours();});
+</script>
+<!--BODY-END-->
+</body>
+</html>
