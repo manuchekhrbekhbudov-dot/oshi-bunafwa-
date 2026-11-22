@@ -9,7 +9,8 @@ export const config = {
   port: num(process.env.PORT, 4000),
   env: process.env.NODE_ENV ?? 'development',
   isProd: process.env.NODE_ENV === 'production',
-  appUrl: process.env.APP_URL ?? 'http://localhost:5173',
+  // Дар Render суроғаи сайт худкор аз RENDER_EXTERNAL_URL гирифта мешавад
+  appUrl: process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || 'http://localhost:5173',
   sessionTtlDays: num(process.env.SESSION_TTL_DAYS, 14),
   sessionCookie: 'hisob_sid',
   timeZone: 'Asia/Dushanbe',
