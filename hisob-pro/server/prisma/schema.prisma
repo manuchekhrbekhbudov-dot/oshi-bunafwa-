@@ -1,0 +1,248 @@
+// HISOB PRO — схемаи базаи додаҳо
+// Ҳамаи маблағҳо Decimal(18,2) мебошанд (на float).
+// Ҳамаи вақтҳо дар UTC нигоҳ дошта мешаванд; ҳисоботҳо дар минтақаи Asia/Dushanbe ҳисоб мешаванд.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Currency {
+  TJS
+  USD
+  RUB
+}
+
+enum Language {
+  tg
+  ru
+}
+
+enum AccountType {
+  CASH     // Пули нақд
+  CARD     // Корти бонкӣ
+  BANK     // Ҳисоби бонкӣ
+  EWALLET  // Ҳамёни электронӣ
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  BANK
+}
+
+enum CategoryKind {
+  INCOME
+  EXPENSE
+}
+
+// Намуди амалиёт. Танҳо INCOME ва EXPENSE дар ҳисоботи фоида/зарар ҳисоб мешаванд.
+// Интиқолҳо ва амалиётҳои қарзӣ танҳо ба баланси ҳисоб таъсир мерасонанд.
+enum TxType {
+  INCOME          // + Даромад
+  EXPENSE         // − Хароҷот
+  TRANSFER_IN     // + Интиқол ба ҳисоб
+  TRANSFER_OUT    // − Интиқол аз ҳисоб
+  DEBT_LENT       // − Қарз додам
+  DEBT_BORROWED   // + Қарз гирифтам
+  DEBT_COLLECTED  // + Қарзи додашуда баргашт
+  DEBT_REPAID     // − Қарзи гирифташударо пардохтам
+}
+
+enum DebtDirection {
+  LENT      // Ман ба касе қарз додам
+  BORROWED  // Ман аз касе қарз гирифтам
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  language     Language @default(tg)
+  baseCurrency Currency @default(TJS)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions      Session[]
+  resetTokens   PasswordResetToken[]
+  accounts      Account[]
+  categories    Category[]
+  transactions  Transaction[]
+  transfers     Transfer[]
+  debts         Debt[]
+  debtPayments  DebtPayment[]
+  exchangeRates ExchangeRate[]
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent  String?
+  ip         String?
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model Account {
+  id             String      @id @default(cuid())
+  userId         String
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  type           AccountType
+  currency       Currency    @default(TJS)
+  initialBalance Decimal     @default(0) @db.Decimal(18, 2)
+  color          String      @default("#8b5cf6")
+  archived       Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  transactions   Transaction[]
+  transfersFrom  Transfer[]    @relation("TransferFrom")
+  transfersTo    Transfer[]    @relation("TransferTo")
+  debts          Debt[]
+  debtPayments   DebtPayment[]
+
+  @@index([userId])
+}
+
+model Category {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  kind      CategoryKind
+  color     String       @default("#8b5cf6")
+  icon      String       @default("circle")
+  isSystem  Boolean      @default(false)
+  createdAt DateTime     @default(now())
+
+  transactions Transaction[]
+
+  @@unique([userId, kind, name])
+  @@index([userId, kind])
+}
+
+model Transaction {
+  id            String         @id @default(cuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId     String
+  account       Account        @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  type          TxType
+  amount        Decimal        @db.Decimal(18, 2) // ҳамеша мусбат; аломат аз type муайян мешавад
+  currency      Currency
+  categoryId    String?
+  category      Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  occurredAt    DateTime
+  source        String?        // Манбаи даромад
+  purpose       String?        // Барои чӣ сарф шуд
+  paymentMethod PaymentMethod?
+  note          String?
+  transferId    String?
+  transfer      Transfer?      @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  debtId        String?
+  debt          Debt?          @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  debtPaymentId String?        @unique
+  debtPayment   DebtPayment?   @relation(fields: [debtPaymentId], references: [id], onDelete: Cascade)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([userId, occurredAt])
+  @@index([userId, type, occurredAt])
+  @@index([accountId])
+}
+
+model Transfer {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fromAccountId String
+  fromAccount   Account  @relation("TransferFrom", fields: [fromAccountId], references: [id], onDelete: Restrict)
+  toAccountId   String
+  toAccount     Account  @relation("TransferTo", fields: [toAccountId], references: [id], onDelete: Restrict)
+  amountFrom    Decimal  @db.Decimal(18, 2)
+  amountTo      Decimal  @db.Decimal(18, 2) // агар асъорҳо гуногун бошанд, бо қурби воридшуда
+  occurredAt    DateTime
+  note          String?
+  createdAt     DateTime @default(now())
+
+  transactions Transaction[]
+
+  @@index([userId, occurredAt])
+}
+
+model Debt {
+  id           String        @id @default(cuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  direction    DebtDirection
+  counterparty String        // Ба кӣ / аз кӣ
+  phone        String?
+  amount       Decimal       @db.Decimal(18, 2)
+  currency     Currency
+  accountId    String?       // ҳисобе, ки пул аз он баромад / ба он даромад (ихтиёрӣ)
+  account      Account?      @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  issuedAt     DateTime
+  dueDate      DateTime?
+  note         String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  payments     DebtPayment[]
+  transactions Transaction[]
+
+  @@index([userId, direction])
+}
+
+model DebtPayment {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  debtId    String
+  debt      Debt      @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  amount    Decimal   @db.Decimal(18, 2)
+  accountId String?
+  account   Account?  @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  paidAt    DateTime
+  note      String?
+  createdAt DateTime  @default(now())
+
+  transaction Transaction?
+
+  @@index([debtId])
+}
+
+// Қурби асъор, ки истифодабаранда худаш муайян мекунад: 1 {currency} = {rate} {baseCurrency}
+model ExchangeRate {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currency  Currency
+  rate      Decimal  @db.Decimal(18, 6)
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@unique([userId, currency])
+}

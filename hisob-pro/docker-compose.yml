@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: hisob-pro-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hisob
+      POSTGRES_PASSWORD: hisob
+      POSTGRES_DB: hisob_pro
+    ports:
+      - "5432:5432"
+    volumes:
+      - hisob_pgdata:/var/lib/postgresql/data
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+volumes:
+  hisob_pgdata:
