@@ -4,8 +4,8 @@
 
 | Лоиҳа | Чист | Папка | Дар интернет |
 |---|---|---|---|
-| **HISOB PRO** | Платформаи идоракунии молия: даромад, хароҷот, ҳисобҳо, қарзҳо, ҳисоботҳо | [`hisob-pro/`](hisob-pro/) | **https://hisob-pro.onrender.com** |
-| **Оши Бунафша** | Сайти тарабхона: меню, сабад, фармоиш | `index.html`, `menu.json` | Сайти статикӣ |
+| **HISOB PRO** | Платформаи идоракунии молия: даромад, хароҷот, ҳисобҳо, қарзҳо, ҳисоботҳо | [`hisob-pro/`](hisob-pro/) | **https://manuchekhrbekhbudov-dot.github.io/oshi-bunafwa-/hisob-pro/** |
+| **Оши Бунафша** | Сайти тарабхона: меню, сабад, фармоиш | `index.html`, `menu.json` | **https://manuchekhrbekhbudov-dot.github.io/oshi-bunafwa-/** |
 
 ---
 
@@ -26,7 +26,9 @@
 **Технологияҳо:** React, TypeScript, Tailwind CSS, Recharts, Node.js, Express, PostgreSQL, Prisma.
 
 ### Сайт дар интернет
-👉 **https://hisob-pro.onrender.com** (дар Render.com ҷойгир аст)
+👉 **https://manuchekhrbekhbudov-dot.github.io/oshi-bunafwa-/hisob-pro/**
+
+Ин линк платформаро мекушояд, ки дар **https://hisob-pro.onrender.com** (Render.com) кор мекунад.
 
 Кушодани аввал баъди беамалӣ то 1 дақиқа вақт мегирад, чунки сервери ройгон «хоб» меравад.
 
