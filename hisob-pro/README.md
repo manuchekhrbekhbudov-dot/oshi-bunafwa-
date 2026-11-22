@@ -101,24 +101,16 @@ CREATE DATABASE hisob_pro OWNER hisob;
 CREATE DATABASE hisob_pro_test OWNER hisob;
 ```
 
-### Қадами 4 — файли `.env`
+### Қадами 4 — танзими база (як фармон)
 ```bash
-cp server/.env.example server/.env
+npm run setup
 ```
-Дар Windows (PowerShell): `Copy-Item server/.env.example server/.env`. Агар парол ё порти базаи шумо дигар бошад, `DATABASE_URL` ва `TEST_DATABASE_URL`-ро иваз кунед.
+Ин фармон худаш `server/.env`-ро месозад, ҷадвалҳоро дар база месозад ва маълумоти демо илова мекунад
+(воридшавӣ: **demo@hisob.pro** / **demo12345**). Бе маълумоти демо: `npm run setup -- --no-demo`.
 
-### Қадами 5 — сохтани ҷадвалҳо (миграция)
-```bash
-npm run db:migrate
-```
+Агар пароль ё порти PostgreSQL-и шумо дигар бошад, `DATABASE_URL` ва `TEST_DATABASE_URL`-ро дар `server/.env` иваз кунед ва `npm run setup`-ро боз иҷро кунед.
 
-### Қадами 6 — маълумоти демо (ихтиёрӣ)
-```bash
-npm run db:seed
-```
-Воридшавӣ: **demo@hisob.pro** / **demo12345**
-
-### Қадами 7 — оғоз
+### Қадами 5 — оғоз
 ```bash
 npm run dev
 ```

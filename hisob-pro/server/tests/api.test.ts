@@ -135,6 +135,16 @@ describe.skipIf(!hasDb)('API (integration, PostgreSQL)', () => {
       await A.patch(`/api/transactions/${id}`).send({ occurredAt: `${day}T09:00` }).expect(200);
     });
 
+    it('ҳисоби бойгонӣ: амалиёти нав манъ, таҳрири амалиёти кӯҳна иҷозат', async () => {
+      const arch = (await A.post('/api/accounts').send({ name: 'Кӯҳна', type: 'CASH', currency: 'TJS' }).expect(201)).body.account.id;
+      const tx = (await A.post('/api/transactions').send({ type: 'EXPENSE', amount: '5', accountId: arch, occurredAt: '2026-10-01T10:00' }).expect(201)).body.transaction.id;
+      await A.patch(`/api/accounts/${arch}`).send({ archived: true }).expect(200);
+      await A.post('/api/transactions').send({ type: 'EXPENSE', amount: '5', accountId: arch, occurredAt: '2026-10-01T10:00' }).expect(400);
+      await A.patch(`/api/transactions/${tx}`).send({ note: 'ислоҳ' }).expect(200);
+      await A.delete(`/api/transactions/${tx}`).expect(200);
+      await A.delete(`/api/accounts/${arch}`).expect(200);
+    });
+
     it('ҷустуҷӯ, филтр, саҳифабандӣ, сорт', async () => {
       const r = await A.get('/api/transactions?q=чой').expect(200);
       expect(r.body.total).toBe(1);

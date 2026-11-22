@@ -137,14 +137,14 @@ export function Segmented<T extends string>({
   className?: string;
 }) {
   return (
-    <div className={clsx('inline-flex rounded-xl bg-slate-100 p-1 dark:bg-white/[0.05]', className)}>
+    <div className={clsx('scrollbar-thin inline-flex max-w-full overflow-x-auto rounded-xl bg-slate-100 p-1 dark:bg-white/[0.05]', className)}>
       {options.map((o) => (
         <button
           key={o.value}
           type="button"
           onClick={() => onChange(o.value)}
           className={clsx(
-            'whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition',
+            'shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition',
             value === o.value
               ? 'bg-white text-slate-900 shadow-sm dark:bg-brand-600 dark:text-white'
               : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white',

@@ -41,6 +41,7 @@ export function TransactionFormModal({
   const [pm, setPm] = useState<PaymentMethod>('CASH');
   const [note, setNote] = useState('');
 
+  // Ҳангоми кушодан ҳамаи майдонҳо якбора гузошта мешаванд (ҳисоби амалиёти таҳриршаванда иваз намешавад)
   useEffect(() => {
     if (!open) return;
     setErrors({});
@@ -54,9 +55,11 @@ export function TransactionFormModal({
       setPm(initial.paymentMethod ?? 'CASH');
       setNote(initial.note ?? '');
     } else {
+      const first = active.find((a) => a.currency === 'TJS');
       setAmount('');
       setCurrency('TJS');
-      setAccountId('');
+      setAccountId(first?.id ?? '');
+      setPm(first ? defaultPm(first.type) : 'CASH');
       setCategoryId('');
       setOccurredAt(toLocalInput());
       setText('');
@@ -66,16 +69,23 @@ export function TransactionFormModal({
   }, [open, initial?.id]);
 
   const forCurrency = active.filter((a) => a.currency === currency);
-  // Ҳисоби мувофиқро худкор интихоб мекунем
+
+  // Агар ҳисобҳо дертар бор шаванд (формаи нав), аввалин ҳисоби мувофиқро интихоб мекунем
   useEffect(() => {
-    if (!open) return;
-    if (!forCurrency.find((a) => a.id === accountId)) {
-      const first = forCurrency[0];
-      setAccountId(first?.id ?? '');
-      if (first && !initial) setPm(defaultPm(first.type));
+    if (open && !initial && !accountId && forCurrency[0]) {
+      setAccountId(forCurrency[0].id);
+      setPm(defaultPm(forCurrency[0].type));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, currency, active.length]);
+  }, [open, active.length]);
+
+  /** Иваз кардани асъор аз ҷониби корбар → ҳисоби мувофиқ интихоб мешавад */
+  const changeCurrency = (c: Currency) => {
+    setCurrency(c);
+    const first = active.find((a) => a.currency === c);
+    setAccountId(first?.id ?? '');
+    if (first) setPm(defaultPm(first.type));
+  };
 
   useEffect(() => {
     if (open && !initial && !categoryId && cats.data?.length) setCategoryId(cats.data[0].id);
@@ -150,7 +160,7 @@ export function TransactionFormModal({
           />
         </Field>
         <Field label={t('currency')} error={errors.currency}>
-          <Select value={currency} onChange={(e) => setCurrency(e.target.value as Currency)} disabled={!!initial}>
+          <Select value={currency} onChange={(e) => changeCurrency(e.target.value as Currency)} disabled={!!initial}>
             <option value="TJS">TJS — сомонӣ</option>
             <option value="USD">USD — доллар</option>
             <option value="RUB">RUB — рубл</option>

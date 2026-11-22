@@ -3,8 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "description": "HISOB PRO — Пулҳои худро оқилона идора кунед.",
-  "workspaces": ["server", "client"],
+  "workspaces": [
+    "server",
+    "client"
+  ],
   "scripts": {
+    "setup": "node scripts/setup.mjs",
     "dev": "concurrently -n server,client -c magenta,cyan \"npm run dev -w server\" \"npm run dev -w client\"",
     "build": "npm run build -w server && npm run build -w client",
     "start": "npm run start -w server",
@@ -17,5 +21,7 @@
   "devDependencies": {
     "concurrently": "^9.1.0"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  }
 }

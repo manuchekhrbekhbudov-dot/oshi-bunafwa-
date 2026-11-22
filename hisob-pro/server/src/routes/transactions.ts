@@ -131,8 +131,10 @@ router.get(
 async function validateRefs(
   userId: string,
   data: { type: 'INCOME' | 'EXPENSE'; accountId: string; categoryId?: string | null; currency?: string },
+  existingAccountId?: string,
 ) {
-  const acc = await ownAccount(userId, data.accountId);
+  // Амалиёти мавҷударо дар ҳисоби бойгонӣ таҳрир кардан мумкин аст; амалиёти нав — не
+  const acc = await ownAccount(userId, data.accountId, { allowArchived: data.accountId === existingAccountId });
   if (data.currency && data.currency !== acc.currency) {
     throw badRequest('CURRENCY_MISMATCH', `Асъори амалиёт бояд бо асъори ҳисоб (${acc.currency}) мувофиқ бошад`, {
       fields: { currency: `Ҳисоб бо ${acc.currency} аст` },
@@ -184,7 +186,7 @@ router.patch(
       categoryId: body.categoryId === undefined ? existing.categoryId : body.categoryId,
       currency: body.currency,
     };
-    const acc = await validateRefs(userId, merged);
+    const acc = await validateRefs(userId, merged, existing.accountId);
     const t = await prisma.transaction.update({
       where: { id: existing.id },
       data: {

@@ -43,10 +43,10 @@ export function DebtFormModal({ open, onClose, initial }: { open: boolean; onClo
   }, [open, initial?.id]);
 
   const forCurrency = active.filter((a) => a.currency === currency);
-  useEffect(() => {
-    if (accountId && !forCurrency.find((a) => a.id === accountId)) setAccountId(forCurrency[0]?.id ?? '');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currency]);
+  const changeCurrency = (c: Currency) => {
+    setCurrency(c);
+    if (accountId) setAccountId(active.find((a) => a.currency === c)?.id ?? '');
+  };
 
   const mutation = useFinanceMutation(async () => {
     const body = {
@@ -125,7 +125,7 @@ export function DebtFormModal({ open, onClose, initial }: { open: boolean; onClo
           <Input inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} invalid={!!errors.amount} trailing={CURRENCY_SYMBOL[currency]} />
         </Field>
         <Field label={t('currency')} error={errors.currency}>
-          <Select value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>
+          <Select value={currency} onChange={(e) => changeCurrency(e.target.value as Currency)}>
             <option value="TJS">TJS</option>
             <option value="USD">USD</option>
             <option value="RUB">RUB</option>
