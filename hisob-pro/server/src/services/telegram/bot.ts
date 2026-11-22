@@ -9,13 +9,18 @@ import { endOfDayExclusiveTz, shiftDay, startOfDayTz, todayKey, TZ } from '../..
 import { formatInTimeZone } from 'date-fns-tz';
 import { getUserContext } from '../context.js';
 import { loadLedgerRows } from '../ledger.js';
-import { categoryBreakdown, summarize } from '../calc.js';
+import { categoryBreakdown, debtState, summarize, summarizeDebts, totalBalance } from '../calc.js';
+import { accountBalances } from '../ledger.js';
 import {
   alertMessage,
   dailyMessage,
   effectiveDailyLimit,
+  esc,
+  fmt,
   INCOME_SOURCES,
   isOverLimit,
+  matchCategory,
+  parseQuickEntry,
   monthMessage,
   parseUserAmount,
   T,
@@ -81,6 +86,8 @@ export async function setupWebhook(publicUrl: string) {
     commands: [
       { command: 'today', description: 'Ҳисоботи имрӯз / Отчёт за сегодня' },
       { command: 'month', description: 'Ҳисоботи моҳ / Отчёт за месяц' },
+      { command: 'balance', description: 'Баланс' },
+      { command: 'debts', description: 'Қарзҳо / Долги' },
       { command: 'limit', description: 'Меъёри рӯзона / Дневная норма' },
       { command: 'daily', description: 'Ҳисоботи 21:00 / Отчёт в 21:00' },
       { command: 'help', description: 'Кӯмак / Помощь' },
@@ -236,10 +243,114 @@ function sourceKeyboard(lang: Lang) {
 
 const skipKeyboard = (lang: Lang) => ({ inline_keyboard: [[{ text: T[lang].skip, callback_data: 'income:skip' }]] });
 
+/** Менюи доимӣ дар поёни чат */
+export function menuKeyboard(lang: Lang) {
+  const m = T[lang].menu;
+  return {
+    keyboard: [[{ text: m.today }, { text: m.month }], [{ text: m.balance }, { text: m.debts }], [{ text: m.help }]],
+    resize_keyboard: true,
+    is_persistent: true,
+    input_field_placeholder: lang === 'ru' ? '50 еда · +3000 зарплата' : '50 хӯрок · +3000 маош',
+  };
+}
+
+/** Тугмаҳои меню (ҳар ду забон) → фармон */
+function menuCommand(text: string): string | null {
+  for (const lang of ['tg', 'ru'] as const) {
+    const m = T[lang].menu;
+    if (text === m.today) return 'today';
+    if (text === m.month) return 'month';
+    if (text === m.balance) return 'balance';
+    if (text === m.debts) return 'debts';
+    if (text === m.help) return 'help';
+  }
+  return null;
+}
+
 async function finishOnboarding(chatId: string, userId: string, lang: Lang) {
   await prisma.telegramLink.update({ where: { userId }, data: { step: 'done' } });
   const d = await computeDay(userId, todayKey());
-  await send(chatId, T[lang].done(d.limit ? `${money(d.limit.value)} смн` : null));
+  await send(chatId, T[lang].done(d.limit ? `${money(d.limit.value)} смн` : null), { reply_markup: menuKeyboard(lang) });
+}
+
+/** Баланси ҳамаи ҳисобҳо */
+export async function balanceMessage(userId: string, lang: Lang) {
+  const t = T[lang];
+  const [{ accounts, balances }, ctx] = await Promise.all([accountBalances(userId, undefined, false), getUserContext(userId)]);
+  if (!accounts.length) return t.noAccount;
+  const total = totalBalance(accounts, balances, ctx.base, ctx.rates);
+  const lines = [t.balanceTitle, ''];
+  for (const a of accounts) lines.push(`• ${esc(a.name)} — <b>${fmt(balances.get(a.id) ?? 0, a.currency)}</b>`);
+  lines.push('', `${t.balanceTotal}: <b>${fmt(total.total, ctx.base)}</b>`);
+  if (total.missingRates.length) lines.push(t.missing(total.missingRates.join(', ')));
+  return lines.join('\n');
+}
+
+/** Қарзҳои кушода */
+export async function debtsMessage(userId: string, lang: Lang) {
+  const t = T[lang];
+  const [debts, ctx] = await Promise.all([
+    prisma.debt.findMany({ where: { userId }, include: { payments: true }, orderBy: { issuedAt: 'desc' } }),
+    getUserContext(userId),
+  ]);
+  const open = debts
+    .map((d) => ({ d, s: debtState(d, d.payments) }))
+    .filter((x) => x.s.status !== 'PAID')
+    .sort((a, b) => (a.s.status === 'OVERDUE' ? -1 : 0) - (b.s.status === 'OVERDUE' ? -1 : 0));
+  if (!open.length) return `${t.debtsTitle}\n\n${t.debtsNone}`;
+  const sum = summarizeDebts(debts, ctx.base, ctx.rates);
+  const lines = [
+    t.debtsTitle,
+    '',
+    `🟢 ${t.debtsLent}: <b>${fmt(sum.lent.remaining, ctx.base)}</b>`,
+    `🔴 ${t.debtsBorrowed}: <b>${fmt(sum.borrowed.remaining, ctx.base)}</b>`,
+    '',
+  ];
+  for (const { d, s } of open.slice(0, 10)) {
+    const icon = d.direction === 'LENT' ? '🟢' : '🔴';
+    const due = d.dueDate
+      ? s.status === 'OVERDUE'
+        ? ` · ⚠️ ${t.overdue} (${formatInTimeZone(d.dueDate, TZ, 'dd.MM.yyyy')})`
+        : ` · ${t.due} ${formatInTimeZone(d.dueDate, TZ, 'dd.MM.yyyy')}`
+      : '';
+    lines.push(`${icon} ${esc(d.counterparty)} — <b>${fmt(s.remaining, d.currency)}</b>${due}`);
+  }
+  if (sum.missingRates.length) lines.push('', t.missing(sum.missingRates.join(', ')));
+  return lines.join('\n');
+}
+
+/** Сабти даромад/хароҷот аз паёми "50 хӯрок" */
+async function quickAdd(chatId: string, userId: string, lang: Lang, entry: { type: 'INCOME' | 'EXPENSE'; amount: string; text: string }) {
+  const t = T[lang];
+  const ctx = await getUserContext(userId);
+  const accounts = await prisma.account.findMany({ where: { userId, archived: false }, orderBy: { createdAt: 'asc' } });
+  // Ҳисоби пешфарз: нақд дар асъори асосӣ → ҳар ҳисоби асъори асосӣ → аввалин
+  const account =
+    accounts.find((a) => a.type === 'CASH' && a.currency === ctx.base) ??
+    accounts.find((a) => a.currency === ctx.base) ??
+    accounts[0];
+  if (!account) return send(chatId, t.noAccount);
+  const categories = await prisma.category.findMany({ where: { userId, kind: entry.type }, orderBy: { createdAt: 'asc' } });
+  const category = matchCategory(entry.text, categories);
+  const tx = await prisma.transaction.create({
+    data: {
+      userId,
+      accountId: account.id,
+      type: entry.type,
+      amount: entry.amount,
+      currency: account.currency,
+      categoryId: category?.id ?? null,
+      occurredAt: new Date(),
+      paymentMethod: account.type === 'CASH' ? 'CASH' : account.type === 'BANK' ? 'BANK' : 'CARD',
+      source: entry.type === 'INCOME' ? entry.text || null : null,
+      purpose: entry.type === 'EXPENSE' ? entry.text || null : null,
+      note: 'Telegram',
+    },
+  });
+  await send(chatId, t.added(entry.type, fmt(entry.amount, account.currency), category?.name ?? '—', account.name, entry.text), {
+    reply_markup: { inline_keyboard: [[{ text: t.undo, callback_data: `undo:${tx.id}` }]] },
+  });
+  if (entry.type === 'EXPENSE') await checkSpendingAlert(userId).catch((e) => console.error('[telegram] alert', e));
 }
 
 export async function handleUpdate(update: TgUpdate) {
@@ -259,6 +370,12 @@ export async function handleUpdate(update: TgUpdate) {
       await send(chatId, T[lang].askIncome, { reply_markup: skipKeyboard(lang) });
     } else if (data === 'income:skip') {
       await finishOnboarding(chatId, link.userId, lang);
+    } else if (data.startsWith('undo:')) {
+      // Танҳо амалиёти худи ҳамин корбар, ки аз Telegram сабт шудааст
+      const del = await prisma.transaction.deleteMany({
+        where: { id: data.slice(5), userId: link.userId, note: 'Telegram', type: { in: ['INCOME', 'EXPENSE'] } },
+      });
+      await send(chatId, del.count ? T[lang].undone : T[lang].undoFail);
     }
     return;
   }
@@ -270,7 +387,7 @@ export async function handleUpdate(update: TgUpdate) {
   const chatId = String(msg.chat.id);
   const text = msg.text.trim();
   const [cmdRaw, ...args] = text.split(/\s+/);
-  const cmd = cmdRaw.startsWith('/') ? cmdRaw.slice(1).split('@')[0].toLowerCase() : '';
+  const cmd = cmdRaw.startsWith('/') ? cmdRaw.slice(1).split('@')[0].toLowerCase() : menuCommand(text) ?? '';
 
   // /start CODE — пайвастшавӣ
   if (cmd === 'start' && args[0]) {
@@ -304,10 +421,21 @@ export async function handleUpdate(update: TgUpdate) {
     return send(chatId, t.askSource, { reply_markup: sourceKeyboard(lang) });
   }
 
+  // "50 хӯрок", "+3000 маош" — сабти зуд
+  if (!cmd) {
+    const entry = parseQuickEntry(text);
+    if (entry) return quickAdd(chatId, link.userId, lang, entry);
+    return send(chatId, `${t.unknown}\n\n${t.quickHint}`, { reply_markup: menuKeyboard(lang) });
+  }
+
   switch (cmd) {
     case 'start':
     case 'help':
-      return send(chatId, t.help);
+      return send(chatId, t.help, { reply_markup: menuKeyboard(lang) });
+    case 'balance':
+      return send(chatId, await balanceMessage(link.userId, lang));
+    case 'debts':
+      return send(chatId, await debtsMessage(link.userId, lang));
     case 'today': {
       const d = await computeDay(link.userId, todayKey());
       return send(chatId, dailyMessage({ ...d, month: undefined }, lang));

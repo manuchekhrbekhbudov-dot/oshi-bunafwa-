@@ -128,6 +128,22 @@ export const T = {
     alertAvg: (avg: string) => `Миёнаи рӯзонаи шумо: ${avg}`,
     alertWhere: 'Пул ба куҷо меравад:',
     open: '📱 Кушодани HISOB PRO',
+    menu: { today: '📊 Имрӯз', month: '🗓 Моҳ', balance: '💰 Баланс', debts: '🤝 Қарзҳо', help: '❓ Кӯмак' },
+    added: (type: 'INCOME' | 'EXPENSE', amount: string, cat: string, account: string, note: string) =>
+      `${type === 'INCOME' ? '✅ Даромад' : '✅ Хароҷот'} сабт шуд: <b>${amount}</b>\n📂 ${esc(cat)} · 💳 ${esc(account)}${note ? `\n📝 ${esc(note)}` : ''}`,
+    undo: '↩️ Бекор кардан',
+    undone: '↩️ Бекор карда шуд.',
+    undoFail: 'Ин амалиётро бекор кардан мумкин нест (шояд аллакай нест шудааст).',
+    noAccount: 'Аввал дар сайт ҳисоб (ҳамён) созед: <b>Ҳамёнҳо ва ҳисобҳо</b>.',
+    balanceTitle: '💰 <b>Баланс</b>',
+    balanceTotal: 'Ҷамъ',
+    debtsTitle: '🤝 <b>Қарзҳо</b>',
+    debtsLent: 'Ба ман қарздоранд',
+    debtsBorrowed: 'Ман қарздорам',
+    debtsNone: 'Қарзи кушода нест. 👍',
+    overdue: 'муҳлатгузашта',
+    due: 'муҳлат',
+    quickHint: '✍️ <b>Сабт бо як паём:</b>\n<code>50 хӯрок</code> — хароҷот\n<code>-20 такси</code> — хароҷот\n<code>+3000 маош</code> — даромад',
   },
   ru: {
     src: { SALARY: 'Зарплата', BUSINESS: 'Бизнес', TRADE: 'Торговля', SERVICES: 'Услуги', OTHER: 'Другое' } as Record<IncomeSource, string>,
@@ -174,13 +190,31 @@ export const T = {
     alertAvg: (avg: string) => `Ваш средний расход в день: ${avg}`,
     alertWhere: 'Куда уходят деньги:',
     open: '📱 Открыть HISOB PRO',
+    menu: { today: '📊 Сегодня', month: '🗓 Месяц', balance: '💰 Баланс', debts: '🤝 Долги', help: '❓ Помощь' },
+    added: (type: 'INCOME' | 'EXPENSE', amount: string, cat: string, account: string, note: string) =>
+      `${type === 'INCOME' ? '✅ Доход' : '✅ Расход'} записан: <b>${amount}</b>\n📂 ${esc(cat)} · 💳 ${esc(account)}${note ? `\n📝 ${esc(note)}` : ''}`,
+    undo: '↩️ Отменить',
+    undone: '↩️ Отменено.',
+    undoFail: 'Эту операцию нельзя отменить (возможно, она уже удалена).',
+    noAccount: 'Сначала создайте счёт на сайте: <b>Кошельки и счета</b>.',
+    balanceTitle: '💰 <b>Баланс</b>',
+    balanceTotal: 'Итого',
+    debtsTitle: '🤝 <b>Долги</b>',
+    debtsLent: 'Мне должны',
+    debtsBorrowed: 'Я должен',
+    debtsNone: 'Открытых долгов нет. 👍',
+    overdue: 'просрочен',
+    due: 'срок',
+    quickHint: '✍️ <b>Запись одним сообщением:</b>\n<code>50 еда</code> — расход\n<code>-20 такси</code> — расход\n<code>+3000 зарплата</code> — доход',
   },
 };
 
 const HELP_TG =
-  '<b>Фармонҳо:</b>\n/today — ҳисоботи имрӯз\n/month — ҳисоботи ҳамин моҳ\n/limit — меъёри хароҷоти рӯзона\n/daily — ҳисоботи 21:00 фаъол/хомӯш\n/stop — ҷудо кардани бот';
+  '✍️ <b>Сабт бо як паём:</b>\n<code>50 хӯрок</code> — хароҷот\n<code>-20 такси</code> — хароҷот\n<code>+3000 маош</code> — даромад\nКатегория худкор муайян мешавад.\n\n' +
+  '<b>Фармонҳо:</b>\n/today — ҳисоботи имрӯз\n/month — ҳисоботи ҳамин моҳ\n/balance — баланси ҳисобҳо\n/debts — қарзҳо\n/limit — меъёри хароҷоти рӯзона\n/daily — ҳисоботи 21:00 фаъол/хомӯш\n/stop — ҷудо кардани бот';
 const HELP_RU =
-  '<b>Команды:</b>\n/today — отчёт за сегодня\n/month — отчёт за месяц\n/limit — дневная норма расходов\n/daily — вкл/выкл отчёт в 21:00\n/stop — отключить бота';
+  '✍️ <b>Запись одним сообщением:</b>\n<code>50 еда</code> — расход\n<code>-20 такси</code> — расход\n<code>+3000 зарплата</code> — доход\nКатегория определяется автоматически.\n\n' +
+  '<b>Команды:</b>\n/today — отчёт за сегодня\n/month — отчёт за месяц\n/balance — баланс счетов\n/debts — долги\n/limit — дневная норма расходов\n/daily — вкл/выкл отчёт в 21:00\n/stop — отключить бота';
 T.tg.help = HELP_TG;
 T.ru.help = HELP_RU;
 
@@ -271,4 +305,74 @@ export function alertMessage(
   const top = cats[0];
   if (top) lines.push('', t.tip(top.name, Math.round(Number(top.share))));
   return lines.join('\n');
+}
+
+/* ------------------------- Илова кардан бо паём ------------------------- */
+
+export interface QuickEntry {
+  type: 'INCOME' | 'EXPENSE';
+  amount: string;
+  /** Матни боқимонда: категория ва шарҳ */
+  text: string;
+}
+
+/**
+ * "50 хӯрок" → хароҷот, "-20 такси" → хароҷот, "+3000 маош" → даромад.
+ * Бе аломат — хароҷот (аксари сабтҳо хароҷотанд).
+ */
+export function parseQuickEntry(input: string): QuickEntry | null {
+  // Пас аз маблағ бояд фосила, асъор ё охири матн бошад — "1.234" ҳеҷ гоҳ ҳамчун 1.23 қабул намешавад
+  const m = /^\s*([+-])?\s*(\d[\d ]{0,15}(?:[.,]\d{1,2})?)(?![\d.,])\s*(?:смн|сомонӣ|сомони|tjs|с\.)?(?:\s+(.*)|$)/i.exec(input);
+  if (!m) return null;
+  const amount = parseUserAmount(m[2]);
+  if (!amount) return null;
+  return { type: m[1] === '+' ? 'INCOME' : 'EXPENSE', amount, text: (m[3] ?? '').trim().slice(0, 200) };
+}
+
+/** Калимаҳое, ки ба категорияҳои пешфарз ишора мекунанд (тоҷикӣ ва русӣ) */
+const KEYWORDS: Record<string, string[]> = {
+  'Хӯрок': ['хӯрок', 'хурок', 'нон', 'обед', 'ужин', 'завтрак', 'кафе', 'ош', 'гӯшт', 'гушт', 'еда', 'продукт', 'бозор', 'базар', 'чой', 'кофе', 'шаурма', 'самбуса'],
+  'Нақлиёт': ['нақлиёт', 'наклиёт', 'такси', 'taxi', 'автобус', 'маршрут', 'бензин', 'газ', 'транспорт', 'мошин', 'машин', 'yandex', 'яндекс'],
+  'Иҷора': ['иҷора', 'ичора', 'аренда', 'квартир', 'хона', 'кварт'],
+  'Интернет': ['интернет', 'internet', 'телефон', 'связь', 'алоқа', 'мобил', 'tcell', 'megafon', 'мегафон', 'babilon', 'вавилон', 'zet'],
+  'Маоши кормандон': ['маоши кормандон', 'кормандон', 'зарплата сотрудн', 'сотрудник', 'коргар'],
+  'Мол': ['мол', 'товар', 'закуп', 'харид'],
+  'Хизматрасонӣ': ['хизмат', 'услуг', 'ремонт', 'таъмир'],
+  'Маош': ['маош', 'зарплата', 'аванс', 'оклад'],
+  'Савдо': ['савдо', 'фурӯш', 'фуруш', 'продаж', 'торгов'],
+  'Тиҷорат': ['тиҷорат', 'тичорат', 'бизнес', 'фоида'],
+};
+
+/** Ҳарфҳои тоҷикӣ ба русӣ — то "хурок" ва "хӯрок", "нак" ва "нақлиёт" якхела бошанд */
+const TJ: Record<string, string> = { 'қ': 'к', 'ғ': 'г', 'ҳ': 'х', 'ҷ': 'ч', 'ӣ': 'и', 'ӯ': 'у', 'ё': 'е' };
+const norm = (s: string) => s.toLowerCase().replace(/[қғҳҷӣӯё]/g, (c) => TJ[c]).trim();
+
+/**
+ * Категорияро аз матн меёбад: аввал номи худи категория (ҳамчунин категорияҳои корбар),
+ * баъд калимаҳои калидӣ. Агар наёбад — "Дигар" ё null.
+ */
+export function matchCategory<C extends { id: string; name: string }>(text: string, categories: C[]): C | null {
+  const t = norm(text);
+  if (t) {
+    // 1) номи категория дар матн ё матн бо номи категория сар мешавад
+    const byName = [...categories]
+      .sort((a, b) => b.name.length - a.name.length)
+      .find((c) => {
+        const n = norm(c.name);
+        return n.length >= 2 && (t.includes(n) || (t.split(/\s+/)[0].length >= 3 && n.startsWith(t.split(/\s+/)[0])));
+      });
+    if (byName) return byName;
+    // 2) калимаҳои калидӣ — ғолиб калимаест, ки дар матн аз ҳама пештар омадааст ("такси то бозор" → Нақлиёт)
+    let best: { c: C; pos: number } | null = null;
+    for (const [catName, words] of Object.entries(KEYWORDS)) {
+      const c = categories.find((x) => norm(x.name) === norm(catName));
+      if (!c) continue;
+      for (const w of words) {
+        const pos = t.indexOf(norm(w));
+        if (pos >= 0 && (!best || pos < best.pos)) best = { c, pos };
+      }
+    }
+    if (best) return best.c;
+  }
+  return categories.find((c) => ['дигар', 'другое', 'прочее'].includes(norm(c.name))) ?? null;
 }

@@ -78,3 +78,34 @@ describe('паёмҳо', () => {
     expect(m).toContain('Хӯрок — 300.00 смн');
   });
 });
+
+import { matchCategory, parseQuickEntry } from '../src/services/telegram/insights.js';
+
+describe('илова кардан бо паём', () => {
+  it('аломат, маблағ ва матн', () => {
+    expect(parseQuickEntry('50 хӯрок')).toEqual({ type: 'EXPENSE', amount: '50.00', text: 'хӯрок' });
+    expect(parseQuickEntry('-20,50 такси то бозор')).toEqual({ type: 'EXPENSE', amount: '20.50', text: 'такси то бозор' });
+    expect(parseQuickEntry('+3 000 маош')).toEqual({ type: 'INCOME', amount: '3000.00', text: 'маош' });
+    expect(parseQuickEntry('+3000смн маош')).toEqual({ type: 'INCOME', amount: '3000.00', text: 'маош' });
+    expect(parseQuickEntry('120')).toEqual({ type: 'EXPENSE', amount: '120.00', text: '' });
+    expect(parseQuickEntry('салом')).toBeNull();
+    expect(parseQuickEntry('0 хӯрок')).toBeNull();
+    expect(parseQuickEntry('1.234 нон')).toBeNull();
+  });
+  const cats = [
+    { id: '1', name: 'Хӯрок' }, { id: '2', name: 'Нақлиёт' }, { id: '3', name: 'Интернет' },
+    { id: '4', name: 'Маоши кормандон' }, { id: '5', name: 'Дигар' }, { id: '6', name: 'Мол' },
+  ];
+  it('категорияро меёбад: ном, аввали калима, калимаи калидӣ, "Дигар"', () => {
+    expect(matchCategory('хӯрок', cats)?.id).toBe('1');
+    expect(matchCategory('Хурок нисфирӯзӣ', cats)?.id).toBe('1');
+    expect(matchCategory('нак', cats)?.id).toBe('2');
+    expect(matchCategory('такси то бозор', cats)?.id).toBe('2');
+    expect(matchCategory('обед в кафе', cats)?.id).toBe('1');
+    expect(matchCategory('маоши кормандон барои ноябр', cats)?.id).toBe('4');
+    expect(matchCategory('Tcell пополнение', cats)?.id).toBe('3');
+    expect(matchCategory('чизи номаълум', cats)?.id).toBe('5');
+    expect(matchCategory('', cats)?.id).toBe('5');
+    expect(matchCategory('xyz', [{ id: '9', name: 'Хӯрок' }])).toBeNull();
+  });
+});

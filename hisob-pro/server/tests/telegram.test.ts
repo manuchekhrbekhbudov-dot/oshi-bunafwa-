@@ -139,6 +139,67 @@ describe.skipIf(!hasDb)('Telegram-бот (integration)', () => {
     await request(app).post('/api/telegram/tick').expect(200);
   });
 
+  it('сабт бо паём: "45 такси то бозор" → хароҷот, категория Нақлиёт, баланс кам шуд', async () => {
+    const bal = async () => (await A.get('/api/accounts')).body.accounts.find((a: { id: string }) => a.id === cash).balance;
+    const before = Number(await bal());
+    const n = sent.length;
+    await text('45 такси то бозор').expect(200);
+    const added = sent.slice(n).find((x) => x.method === 'sendMessage' && String(x.body.text).includes('сабт шуд'))!;
+    expect(String(added.body.text)).toContain('45.00 смн');
+    expect(String(added.body.text)).toContain('Нақлиёт');
+    // хароҷоти рӯз (140 + 45 = 185) аз меъёри худкор (6000 × 80% / рӯзҳо) гузашт → огоҳӣ низ омад
+    expect(sent.slice(n).some((x) => String(x.body.text).includes('бисёр сарф'))).toBe(true);
+    const undoBtn = added.body.reply_markup as { inline_keyboard: { callback_data: string }[][] };
+    expect((Number(await bal()) - before).toFixed(2)).toBe('-45.00');
+    const tx = (await A.get('/api/transactions?type=EXPENSE&pageSize=1')).body.items[0];
+    expect(tx.category.name).toBe('Нақлиёт');
+    expect(tx.purpose).toBe('такси то бозор');
+    // ↩️ Бекор кардан
+    await press(undoBtn.inline_keyboard[0][0].callback_data).expect(200);
+    expect(lastMsg()).toContain('Бекор карда шуд');
+    expect(Number(await bal()).toFixed(2)).toBe(before.toFixed(2));
+    // такрори бекоркунӣ
+    await press(undoBtn.inline_keyboard[0][0].callback_data);
+    expect(lastMsg()).toContain('мумкин нест');
+  });
+
+  it('даромад бо "+": "+2500 маош" → категория Маош', async () => {
+    await text('+2500 маош');
+    expect(lastMsg()).toContain('Даромад');
+    expect(lastMsg()).toContain('Маош');
+    const tx = (await A.get('/api/transactions?type=INCOME&pageSize=1')).body.items[0];
+    expect(tx.amount).toBe('2500.00');
+    expect(tx.source).toBe('маош');
+  });
+
+  it('тугмаи «💰 Баланс» ва «🤝 Қарзҳо»', async () => {
+    await text('💰 Баланс');
+    expect(lastMsg()).toContain('Пули нақд');
+    expect(lastMsg()).toContain('Ҷамъ');
+    await text('🤝 Қарзҳо');
+    expect(lastMsg()).toContain('Қарзи кушода нест');
+    await A.post('/api/debts').send({ direction: 'LENT', counterparty: 'Карим <b>', amount: '300', currency: 'TJS', issuedAt: '2026-01-01T10:00', dueDate: '2026-02-01' }).expect(201);
+    await text('/debts');
+    expect(lastMsg()).toContain('Карим &lt;b&gt;');
+    expect(lastMsg()).toContain('300.00 смн');
+    expect(lastMsg()).toContain('муҳлатгузашта');
+  });
+
+  it('матни номаълум → маслиҳат ва меню, на хатогӣ', async () => {
+    await text('салом');
+    expect(lastMsg()).toContain('50 хӯрок');
+    const kb = sent.filter((x) => x.method === 'sendMessage').at(-1)!.body.reply_markup as { keyboard: unknown[] };
+    expect(kb.keyboard.length).toBe(3);
+  });
+
+  it('паёми бегона аз чати дигар бекор карда наметавонад', async () => {
+    const n = sent.length;
+    await text('10 нон');
+    const btn = (sent.slice(n).find((x) => String(x.body.text).includes('сабт шуд'))!.body.reply_markup as { inline_keyboard: { callback_data: string }[][] }).inline_keyboard[0][0].callback_data;
+    await hook({ callback_query: { id: 'x', data: btn, message: { chat: { id: 999999, type: 'private' } } } }).expect(200);
+    expect((await A.get('/api/transactions?q=нон')).body.total).toBe(1);
+  });
+
   it('/daily хомӯш мекунад; /stop ҷудо мекунад', async () => {
     await text('/daily');
     expect(lastMsg()).toContain('хомӯш');
