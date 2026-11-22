@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Coins, KeyRound, LogOut, Moon, Palette, Plus, Sun, Tags, Trash2, User as UserIcon, Pencil, Check, X } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
+import { Coins, KeyRound, LogOut, Moon, Palette, Plus, Sun, Tags, Trash2, User as UserIcon, Pencil, Check, X, Send, ExternalLink, BellRing } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useI18n } from '../i18n';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
@@ -253,6 +253,135 @@ function CategoriesCard() {
   );
 }
 
+interface TgSettings {
+  enabled: boolean;
+  botUsername: string | null;
+  linked: boolean;
+  username: string | null;
+  onboarding: boolean;
+  notifyDaily: boolean;
+  dailyLimit: string | null;
+  monthlyIncome: string | null;
+  effectiveLimit: { value: string; basis: 'manual' | 'income' | 'average' } | null;
+}
+
+function TelegramCard() {
+  const { t } = useI18n();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const q = useQuery({
+    queryKey: ['telegram'],
+    queryFn: () => api.get<TgSettings>('/telegram/settings'),
+    // То корбар дар Telegram "Start" пахш кунад, ҳолатро нав мекунем
+    refetchInterval: (query) => (query.state.data && !query.state.data.linked ? 5000 : query.state.data?.onboarding ? 5000 : false),
+  });
+  const [url, setUrl] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [limit, setLimit] = useState('');
+  const [income, setIncome] = useState('');
+  const [unlinking, setUnlinking] = useState(false);
+  const d = q.data;
+  useEffect(() => {
+    if (!d) return;
+    setLimit(d.dailyLimit ? String(Number(d.dailyLimit)) : '');
+    setIncome(d.monthlyIncome ? String(Number(d.monthlyIncome)) : '');
+    if (d.linked) setUrl(null);
+  }, [d?.dailyLimit, d?.monthlyIncome, d?.linked]);
+
+  const refresh = () => qc.invalidateQueries({ queryKey: ['telegram'] });
+  const connect = async () => {
+    setBusy(true);
+    try {
+      const r = await api.post<{ url: string }>('/telegram/link');
+      setUrl(r.url);
+      window.open(r.url, '_blank', 'noopener');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : String(e), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const save = async (patch: Record<string, unknown>) => {
+    try {
+      await api.patch('/telegram/settings', patch);
+      await refresh();
+      toast(t('saved'));
+    } catch (e) {
+      toast(e instanceof Error ? e.message : String(e), 'error');
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader title={t('tgTitle')} subtitle={t('tgSubtitle')} icon={<Send className="h-4 w-4" />} />
+      <div className="space-y-4 p-5">
+        {!d ? null : !d.enabled ? (
+          <p className="rounded-xl bg-amber-500/10 px-3 py-2.5 text-sm text-amber-700 dark:text-amber-300">{t('tgDisabled')}</p>
+        ) : !d.linked ? (
+          <>
+            <p className="text-sm text-slate-600 dark:text-slate-300">{t('tgFeatures')}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button onClick={connect} loading={busy} icon={<Send className="h-4 w-4" />}>{t('tgConnect')}</Button>
+              {url && (
+                <a href={url} target="_blank" rel="noopener noreferrer">
+                  <Button variant="secondary" icon={<ExternalLink className="h-4 w-4" />}>{t('tgOpen')}</Button>
+                </a>
+              )}
+            </div>
+            {url && <p className="text-xs text-slate-500">{t('tgOpenHint')}</p>}
+          </>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge color="green">● {t('tgLinked')}</Badge>
+              {d.username && <span className="text-sm font-semibold">@{d.username}</span>}
+              {d.botUsername && (
+                <a href={`https://t.me/${d.botUsername}`} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-brand-500 hover:underline">
+                  @{d.botUsername}
+                </a>
+              )}
+            </div>
+            {d.onboarding && <p className="rounded-xl bg-blue-500/10 px-3 py-2 text-xs text-blue-700 dark:text-blue-300">{t('tgOnboarding')}</p>}
+            <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3 dark:border-white/10">
+              <span className="flex items-center gap-2 text-sm font-medium"><BellRing className="h-4 w-4 text-brand-500" />{t('tgDaily')}</span>
+              <input type="checkbox" className="h-5 w-5 accent-violet-600" checked={d.notifyDaily} onChange={(e) => save({ notifyDaily: e.target.checked })} />
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label={t('tgDailyLimit')} hint={t('tgDailyLimitHint')}>
+                <Input inputMode="decimal" value={limit} onChange={(e) => setLimit(e.target.value)} placeholder="auto" trailing="смн" />
+              </Field>
+              <Field label={t('tgMonthlyIncome')}>
+                <Input inputMode="decimal" value={income} onChange={(e) => setIncome(e.target.value)} placeholder="—" trailing="смн" />
+              </Field>
+            </div>
+            <p className="text-xs text-slate-500">
+              {t('tgEffective')}:{' '}
+              <b className="text-slate-800 dark:text-slate-200">
+                {d.effectiveLimit ? `${d.effectiveLimit.value} смн` : t('tgNoLimit')}
+              </b>
+              {d.effectiveLimit && ` (${t(`tgBasis_${d.effectiveLimit.basis}`)})`}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => save({ dailyLimit: limit.trim() || null, monthlyIncome: income.trim() || null })}>{t('save')}</Button>
+              <Button variant="ghost" onClick={() => setUnlinking(true)}>{t('tgUnlink')}</Button>
+            </div>
+          </>
+        )}
+      </div>
+      <ConfirmDialog
+        open={unlinking}
+        onClose={() => setUnlinking(false)}
+        text={t('tgUnlink') + '?'}
+        onConfirm={async () => {
+          await api.del('/telegram/link').catch(() => undefined);
+          setUnlinking(false);
+          await refresh();
+        }}
+      />
+    </Card>
+  );
+}
+
 export default function SettingsPage() {
   const { t } = useI18n();
   const { theme, setTheme } = useTheme();
@@ -278,6 +407,7 @@ export default function SettingsPage() {
           <PasswordCard />
         </div>
         <div className="space-y-6">
+          <TelegramCard />
           <RatesCard />
           <CategoriesCard />
         </div>

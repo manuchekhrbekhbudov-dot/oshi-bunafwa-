@@ -16,6 +16,7 @@ import transferRoutes from './routes/transfers.js';
 import debtRoutes from './routes/debts.js';
 import reportRoutes from './routes/reports.js';
 import rateRoutes from './routes/rates.js';
+import telegramRoutes from './routes/telegram.js';
 
 export function createApp() {
   const app = express();
@@ -42,6 +43,7 @@ export function createApp() {
   api.use('/debts', requireAuth, debtRoutes);
   api.use('/reports', requireAuth, reportRoutes);
   api.use('/rates', requireAuth, rateRoutes);
+  api.use('/telegram', telegramRoutes); // webhook ва tick — ҷамъиятӣ; танзимот — бо requireAuth
   api.use(notFoundHandler);
   app.use('/api', api);
 

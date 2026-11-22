@@ -16,6 +16,12 @@ import { endOfDayExclusiveTz, startOfDayTz } from '../lib/dates.js';
 import { ownAccount, ownCategory } from '../services/ownership.js';
 import { serializeTx, txInclude } from '../services/serialize.js';
 import { parseAmount } from '../lib/money.js';
+import { checkSpendingAlert } from '../services/telegram/bot.js';
+
+/** Огоҳии Telegram дар замина — ҳеҷ гоҳ ҷавобро суст ё вайрон намекунад */
+function alertLater(userId: string) {
+  checkSpendingAlert(userId).catch((e) => console.error('[telegram] alert failed', e));
+}
 
 const router = Router();
 
@@ -166,6 +172,7 @@ router.post(
       },
       include: txInclude,
     });
+    if (t.type === 'EXPENSE') alertLater(userId);
     res.status(201).json({ transaction: serializeTx(t) });
   }),
 );
@@ -202,6 +209,7 @@ router.patch(
       },
       include: txInclude,
     });
+    if (t.type === 'EXPENSE') alertLater(userId);
     res.json({ transaction: serializeTx(t) });
   }),
 );
