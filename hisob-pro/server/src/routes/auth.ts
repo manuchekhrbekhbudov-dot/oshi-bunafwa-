@@ -3,9 +3,9 @@ import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { asyncHandler, parse, uid } from '../lib/http.js';
-import { badRequest, conflict, unauthorized } from '../lib/errors.js';
+import { badRequest, conflict, HttpError, unauthorized } from '../lib/errors.js';
 import { requireAuth } from '../middleware/auth.js';
-import { config } from '../config.js';
+import { config, registrationMode } from '../config.js';
 import {
   clearSessionCookie,
   createSession,
@@ -50,10 +50,25 @@ const publicUser = {
 let dummyHash: Promise<string> | null = null;
 const getDummyHash = () => (dummyHash ??= hashPassword(randomToken()));
 
+const registrationClosed = () =>
+  new HttpError(403, 'REGISTRATION_CLOSED', 'Сабти ном пӯшида аст. Ин платформаи шахсӣ аст.');
+
+/** Оё ҳоло сабти ном мумкин аст? (барои пинҳон кардани тугма дар интерфейс) */
+router.get(
+  '/registration',
+  asyncHandler(async (_req, res) => {
+    const mode = registrationMode();
+    const open = mode === 'open' || (mode === 'first-user' && (await prisma.user.count()) === 0);
+    res.json({ open });
+  }),
+);
+
 router.post(
   '/register',
   authLimiter,
   asyncHandler(async (req, res) => {
+    const mode = registrationMode();
+    if (mode === 'closed') throw registrationClosed();
     const body = parse(
       z.object({
         name: z.string().trim().min(2, 'Ном ҳадди ақал 2 аломат').max(100),
@@ -63,11 +78,15 @@ router.post(
       }),
       req.body,
     );
-    const exists = await prisma.user.findUnique({ where: { email: body.email } });
-    if (exists) throw conflict('EMAIL_TAKEN', 'Ин email аллакай сабт шудааст');
-
     const passwordHash = await hashPassword(body.password);
     const user = await prisma.$transaction(async (tx) => {
+      if (mode === 'first-user') {
+        // Қулф: ду дархости ҳамзамон наметавонанд ҳарду "аввалин" шаванд
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(724001)`;
+        if ((await tx.user.count()) > 0) throw registrationClosed();
+      }
+      const exists = await tx.user.findUnique({ where: { email: body.email } });
+      if (exists) throw conflict('EMAIL_TAKEN', 'Ин email аллакай сабт шудааст');
       const u = await tx.user.create({
         data: { name: body.name, email: body.email, passwordHash, language: body.language ?? 'tg' },
         select: publicUser,

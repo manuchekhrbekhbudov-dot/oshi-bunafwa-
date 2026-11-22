@@ -75,6 +75,25 @@ describe.skipIf(!hasDb)('API (integration, PostgreSQL)', () => {
       await B.post('/api/auth/register').send({ name: 'Валӣ', email: 'vali@test.tj', password: 'parol5678' }).expect(201);
     });
 
+    it("реҷаи 'first-user': баъди ҳисоби аввал сабти ном пӯшида мешавад", async () => {
+      process.env.REGISTRATION = 'first-user';
+      try {
+        expect((await request(app).get('/api/auth/registration').expect(200)).body.open).toBe(false);
+        const r = await request(app)
+          .post('/api/auth/register')
+          .send({ name: 'Бегона', email: 'stranger@test.tj', password: 'parol1234' })
+          .expect(403);
+        expect(r.body.error.code).toBe('REGISTRATION_CLOSED');
+        // воридшавии соҳиб кор мекунад
+        await request(app).post('/api/auth/login').send({ email: 'ali@test.tj', password: 'parol1234' }).expect(200);
+        process.env.REGISTRATION = 'closed';
+        await request(app).post('/api/auth/register').send({ name: 'Бегона', email: 'x2@test.tj', password: 'parol1234' }).expect(403);
+      } finally {
+        process.env.REGISTRATION = 'open';
+      }
+      expect((await request(app).get('/api/auth/registration')).body.open).toBe(true);
+    });
+
     it('CSRF: Origin-и бегона рад мешавад', async () => {
       await request(app)
         .post('/api/auth/login')

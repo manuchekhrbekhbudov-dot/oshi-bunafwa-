@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Eye, EyeOff, Lock, Mail, User as UserIcon, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, User as UserIcon, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Button } from '../../components/ui/Button';
 import { Field, Input } from '../../components/ui/Field';
@@ -28,6 +29,16 @@ function PasswordInput({ value, onChange, invalid, autoComplete }: { value: stri
   );
 }
 
+/** Оё сабти ном кушода аст? (платформаи шахсӣ — танҳо ҳисоби аввал) */
+function useRegistrationOpen() {
+  const q = useQuery({
+    queryKey: ['registration'],
+    queryFn: () => api.get<{ open: boolean }>('/auth/registration'),
+    staleTime: 30_000,
+  });
+  return q.data?.open;
+}
+
 function FormError({ msg }: { msg: string }) {
   if (!msg) return null;
   return <div className="rounded-xl bg-rose-500/10 px-3 py-2.5 text-sm font-medium text-rose-600 dark:text-rose-400">{msg}</div>;
@@ -41,6 +52,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+  const registrationOpen = useRegistrationOpen();
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setErr('');
@@ -72,12 +84,14 @@ export function LoginPage() {
         <Button type="submit" size="lg" className="w-full justify-center" loading={loading}>
           {t('login')}
         </Button>
-        <p className="text-center text-sm text-slate-500">
-          {t('noAccount')}{' '}
-          <Link to="/register" className="font-semibold text-brand-500 hover:underline">
-            {t('register')}
-          </Link>
-        </p>
+        {registrationOpen && (
+          <p className="text-center text-sm text-slate-500">
+            {t('noAccount')}{' '}
+            <Link to="/register" className="font-semibold text-brand-500 hover:underline">
+              {t('register')}
+            </Link>
+          </p>
+        )}
       </form>
     </AuthLayout>
   );
@@ -93,6 +107,7 @@ export function RegisterPage() {
   const [fields, setFields] = useState<Record<string, string>>({});
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
+  const registrationOpen = useRegistrationOpen();
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setErr('');
@@ -111,7 +126,18 @@ export function RegisterPage() {
     }
   };
   return (
-    <AuthLayout title={t('register')} subtitle={t('registerSubtitle')}>
+    <AuthLayout title={t('register')} subtitle={registrationOpen === false ? undefined : t('registerSubtitle')}>
+      {registrationOpen === false ? (
+        <div className="space-y-4">
+          <div className="flex gap-3 rounded-2xl bg-brand-500/10 p-4 text-sm text-brand-700 dark:text-brand-200">
+            <ShieldCheck className="h-5 w-5 shrink-0" />
+            {t('registrationClosed')}
+          </div>
+          <Link to="/login" className="block text-center text-sm font-semibold text-brand-500">
+            {t('backToLogin')}
+          </Link>
+        </div>
+      ) : (
       <form onSubmit={submit} className="space-y-4">
         <FormError msg={err} />
         <Field label={t('name')} error={fields.name}>
@@ -133,6 +159,7 @@ export function RegisterPage() {
           </Link>
         </p>
       </form>
+      )}
     </AuthLayout>
   );
 }

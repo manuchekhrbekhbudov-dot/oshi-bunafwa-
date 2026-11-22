@@ -5,6 +5,19 @@ function num(v: string | undefined, def: number): number {
   return Number.isFinite(n) && n > 0 ? n : def;
 }
 
+/**
+ * Реҷаи сабти ном (REGISTRATION):
+ *  - 'first-user' (пешфарз): танҳо ҳисоби аввалин сохта мешавад — платформаи шахсии як соҳиб
+ *  - 'open': ҳар кас метавонад сабти ном кунад
+ *  - 'closed': сабти ном пурра пӯшида
+ * Ҳар дафъа аз env хонда мешавад (барои тестҳо ва тағйир бе build).
+ */
+export type RegistrationMode = 'first-user' | 'open' | 'closed';
+export function registrationMode(): RegistrationMode {
+  const v = (process.env.REGISTRATION || 'first-user').toLowerCase();
+  return v === 'open' || v === 'closed' ? v : 'first-user';
+}
+
 export const config = {
   port: num(process.env.PORT, 4000),
   env: process.env.NODE_ENV ?? 'development',
