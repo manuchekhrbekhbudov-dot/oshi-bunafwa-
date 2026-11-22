@@ -1,15 +1,4 @@
-# Лоиҳаҳо
-
-Дар ин репозиторий ду лоиҳаи алоҳида ҳаст:
-
-| Лоиҳа | Чист | Папка | Дар интернет |
-|---|---|---|---|
-| **HISOB PRO** | Платформаи идоракунии молия: даромад, хароҷот, ҳисобҳо, қарзҳо, ҳисоботҳо | [`hisob-pro/`](hisob-pro/) | **https://manuchekhrbekhbudov-dot.github.io/oshi-bunafwa-/hisob-pro/** |
-| **Оши Бунафша** | Сайти тарабхона: меню, сабад, фармоиш | `index.html`, `menu.json` | **https://manuchekhrbekhbudov-dot.github.io/oshi-bunafwa-/** |
-
----
-
-## HISOB PRO
+# HISOB PRO
 
 **Пулҳои худро оқилона идора кунед.**
 
@@ -25,8 +14,8 @@
 
 **Технологияҳо:** React, TypeScript, Tailwind CSS, Recharts, Node.js, Express, PostgreSQL, Prisma.
 
-### Сайт дар интернет
-👉 **https://manuchekhrbekhbudov-dot.github.io/oshi-bunafwa-/hisob-pro/**
+## Сайт дар интернет
+👉 **https://manuchekhrbekhbudov-dot.github.io/oshi-bunafwa-/**
 
 Ин линк платформаро мекушояд, ки дар **https://hisob-pro.onrender.com** (Render.com) кор мекунад.
 
@@ -36,7 +25,7 @@
 
 > ⚠️ Базаи ройгони Render баъди 30 рӯз нест карда мешавад. Барои истифодаи доимӣ бахши «Бор кардан ба интернет»-ро дар [`hisob-pro/README.md`](hisob-pro/README.md) бинед.
 
-### Ба кор андохтан дар компютер (VS Code)
+## Ба кор андохтан дар компютер (VS Code)
 Ба шумо Node.js 20+ ва PostgreSQL (ё Docker) лозим аст. Дар папкаи `hisob-pro`:
 
 ```bash
@@ -49,25 +38,3 @@ npm run dev
 Баъд http://localhost:5173 -ро кушоед. Воридшавии демо: **demo@hisob.pro** / **demo12345**.
 
 Дастури пурра, структураи проект ва API дар [`hisob-pro/README.md`](hisob-pro/README.md).
-
----
-
-## Оши Бунафша
-
-Сайти тарабхонаи «Оши Бунафша» (ш. Душанбе, Гипрозем). Забонҳо: тоҷикӣ ва русӣ.
-
-- `index.html`: саҳифаи мизоҷон (меню, сабад, пешпардохти 50%, фармоиш тавассути WhatsApp +992 55 025 5552).
-- `menu.json`: меню, нархҳо, рақамҳои пардохт ва соатҳои корӣ.
-
-### Чӣ тавр нархро иваз кардан мумкин
-
-Дар GitHub файли `menu.json`-ро кушоед, тугмаи ✏️ (Edit)-ро пахш кунед ва тағйир диҳед:
-
-- `"price": null` → `"price": 35` (нарх бо сомонӣ)
-- `"on": false`: таом пинҳон мешавад
-- `"pay"`: рақамҳои Алиф, Душанбе Сити ва корт, масалан `"number": "+992 55 025 5552"`
-- `"deliveryFee"`: нархи расонидан, масалан `10`
-- `"hours"`: соатҳои корӣ, масалан `"09:00–23:00"`
-- `"prepay"`: фоизи пешпардохт (`50`)
-
-Баъд **Commit changes**-ро пахш кунед. Сайт пас аз 1–2 дақиқа нав мешавад.
