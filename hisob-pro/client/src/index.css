@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-tap-highlight-color: transparent; }
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased dark:bg-ink-950 dark:text-slate-100;
+    font-feature-settings: 'tnum' 1, 'cv11' 1;
+  }
+  .dark body {
+    background-image:
+      radial-gradient(1200px 600px at 100% -10%, rgba(124, 58, 237, 0.12), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(59, 130, 246, 0.08), transparent 60%);
+    background-attachment: fixed;
+  }
+  input[type='datetime-local']::-webkit-calendar-picker-indicator,
+  input[type='date']::-webkit-calendar-picker-indicator { @apply cursor-pointer opacity-60; }
+  .dark input[type='datetime-local']::-webkit-calendar-picker-indicator,
+  .dark input[type='date']::-webkit-calendar-picker-indicator { filter: invert(1); }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-slate-200/80 bg-white shadow-card dark:border-white/[0.06] dark:bg-ink-900/70 dark:shadow-none;
+  }
+  .glass {
+    @apply border border-white/40 bg-white/70 backdrop-blur-xl dark:border-white/[0.07] dark:bg-ink-900/60;
+  }
+  .input {
+    @apply h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition
+      placeholder:text-slate-400 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/15
+      disabled:opacity-60 dark:border-white/10 dark:bg-ink-850 dark:text-slate-100 dark:placeholder:text-slate-500;
+  }
+  .input-error { @apply border-rose-400 focus:border-rose-500 focus:ring-rose-500/15 dark:border-rose-500/60; }
+  .label { @apply mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400; }
+  .th { @apply px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400; }
+  .td { @apply px-4 py-3 text-sm; }
+  .num { font-variant-numeric: tabular-nums; }
+}
+
+.scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, 0.3); border-radius: 99px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

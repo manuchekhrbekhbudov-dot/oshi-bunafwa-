@@ -96,7 +96,7 @@ router.get(
           title: lang === 'ru' ? 'Отчёт за период' : 'Ҳисоботи давра',
           label: `${q.from}_${q.to}`,
           summary: r.summary,
-          operationsCount: r.operationsCount,
+          operationsCount: r.pnlCount,
           series: r.series,
           expenseByCategory: r.expenseByCategory,
         },
