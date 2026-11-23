@@ -8,7 +8,10 @@ import { ThemeProvider } from './hooks/useTheme';
 import { AuthProvider } from './hooks/useAuth';
 import { ToastProvider } from './components/ui/Toast';
 import { ApiError } from './lib/api';
+import { initPwa } from './lib/pwa';
 import './index.css';
+
+initPwa();
 
 const queryClient = new QueryClient({
   defaultOptions: {

@@ -7,6 +7,9 @@ import { useI18n } from '../i18n';
 interface AuthCtx {
   user: User | null;
   loading: boolean;
+  /** Сервер дастрас нест (интернет нест) — на "баромадан" */
+  offline: boolean;
+  retry: () => void;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -56,6 +59,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [qc, resetData]);
 
+  const refetchMe = me.refetch;
+  const retry = useCallback(() => {
+    void refetchMe();
+  }, [refetchMe]);
+
   const login = async (email: string, password: string) => {
     const r = await api.post<{ user: User }>('/auth/login', { email, password });
     resetData();
@@ -74,7 +82,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <Ctx.Provider
-      value={{ user: me.data ?? null, loading: me.isLoading, login, register, logout, setUser: (u) => setUser(u) }}
+      value={{
+        user: me.data ?? null,
+        loading: me.isLoading,
+        offline: me.data === undefined && me.error instanceof ApiError && me.error.status === 0,
+        retry,
+        login,
+        register,
+        logout,
+        setUser: (u) => setUser(u),
+      }}
     >
       {children}
     </Ctx.Provider>

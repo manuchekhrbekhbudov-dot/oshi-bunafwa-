@@ -14,6 +14,7 @@ import { useToast } from '../components/ui/Toast';
 import { api, ApiError } from '../lib/api';
 import { formatDate } from '../lib/dates';
 import type { Category, CategoryKind, Currency, Lang, User } from '../lib/types';
+import { InstallCard } from '../components/InstallApp';
 
 function ProfileCard() {
   const { t, setLang } = useI18n();
@@ -387,7 +388,10 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const location = useLocation();
   useEffect(() => {
-    if (location.hash === '#rates') setTimeout(() => document.getElementById('rates')?.scrollIntoView({ behavior: 'smooth' }), 100);
+    const id = location.hash.slice(1);
+    if (id === 'rates' || id === 'app') {
+      setTimeout(() => document.getElementById(id)?.closest('.card')?.scrollIntoView({ behavior: 'smooth' }), 150);
+    }
   }, [location.hash]);
   return (
     <div className="space-y-6">
@@ -407,6 +411,7 @@ export default function SettingsPage() {
           <PasswordCard />
         </div>
         <div className="space-y-6">
+          <InstallCard />
           <TelegramCard />
           <RatesCard />
           <CategoriesCard />

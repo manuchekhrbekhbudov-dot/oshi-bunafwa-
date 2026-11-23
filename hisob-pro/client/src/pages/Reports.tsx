@@ -39,7 +39,7 @@ function ExportButtons({ params }: { params: Record<string, string | undefined> 
 function CurrencySelect({ value, onChange, base }: { value: string; onChange: (v: string) => void; base: Currency }) {
   const { t } = useI18n();
   return (
-    <Select value={value} onChange={(e) => onChange(e.target.value)} className="h-9 w-auto text-xs" title={t('viewCurrency')}>
+    <Select value={value} onChange={(e) => onChange(e.target.value)} className="h-9 w-auto sm:text-xs" title={t('viewCurrency')}>
       <option value="">{t('allConverted', { c: base })}</option>
       <option value="TJS">TJS</option>
       <option value="USD">USD</option>
@@ -204,7 +204,7 @@ function PeriodTab() {
             <Input type="date" value={custom.to} onChange={(e) => setCustom((x) => ({ ...x, to: e.target.value }))} className="h-9 w-auto" />
           </>
         )}
-        <Select value={granularity} onChange={(e) => setGranularity(e.target.value)} className="h-9 w-auto text-xs" title={t('granularity')}>
+        <Select value={granularity} onChange={(e) => setGranularity(e.target.value)} className="h-9 w-auto sm:text-xs" title={t('granularity')}>
           <option value="">{t('granularity')}: auto</option>
           <option value="day">{t('g_day')}</option>
           <option value="week">{t('g_week')}</option>

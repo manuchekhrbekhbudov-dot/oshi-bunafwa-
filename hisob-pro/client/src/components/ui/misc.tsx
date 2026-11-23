@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import clsx from 'clsx';
 import { AlertCircle, ChevronLeft, ChevronRight, Inbox, Loader2 } from 'lucide-react';
 import { Button } from './Button';
@@ -137,14 +137,15 @@ export function Segmented<T extends string>({
   className?: string;
 }) {
   return (
-    <div className={clsx('scrollbar-thin inline-flex max-w-full overflow-x-auto rounded-xl bg-slate-100 p-1 dark:bg-white/[0.05]', className)}>
+    // Дар телефон тугмаҳо ба сатри нав мегузаранд — scroll-и паҳлуӣ нест
+    <div className={clsx('inline-flex max-w-full flex-wrap gap-0.5 rounded-xl bg-slate-100 p-1 dark:bg-white/[0.05]', className)}>
       {options.map((o) => (
         <button
           key={o.value}
           type="button"
           onClick={() => onChange(o.value)}
           className={clsx(
-            'shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition',
+            'grow whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition sm:grow-0',
             value === o.value
               ? 'bg-white text-slate-900 shadow-sm dark:bg-brand-600 dark:text-white'
               : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white',
@@ -159,19 +160,26 @@ export function Segmented<T extends string>({
 
 export function Pagination({ page, pages, total, onChange }: { page: number; pages: number; total: number; onChange: (p: number) => void }) {
   const { t } = useI18n();
+  const ref = useRef<HTMLDivElement>(null);
+  // Саҳифаи нав → рӯйхат аз аввал нишон дода мешавад (на аз поён)
+  const go = (p: number) => {
+    onChange(p);
+    const card = ref.current?.closest('.card');
+    if (card && card.getBoundingClientRect().top < 0) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   return (
-    <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 text-xs text-slate-500 dark:border-white/[0.06] sm:flex-row">
+    <div ref={ref} className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 text-xs text-slate-500 dark:border-white/[0.06] sm:flex-row">
       <span>
         {t('found')}: <b className="text-slate-800 dark:text-slate-200">{total}</b>
       </span>
       <div className="flex items-center gap-2">
-        <Button variant="secondary" size="icon" disabled={page <= 1} onClick={() => onChange(page - 1)} aria-label="prev">
+        <Button variant="secondary" size="icon" disabled={page <= 1} onClick={() => go(page - 1)} aria-label="prev">
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <span className="px-2">
           {t('page')} <b className="text-slate-800 dark:text-slate-200">{page}</b> {t('of')} {pages}
         </span>
-        <Button variant="secondary" size="icon" disabled={page >= pages} onClick={() => onChange(page + 1)} aria-label="next">
+        <Button variant="secondary" size="icon" disabled={page >= pages} onClick={() => go(page + 1)} aria-label="next">
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>

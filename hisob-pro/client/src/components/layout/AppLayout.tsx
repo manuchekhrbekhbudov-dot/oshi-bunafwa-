@@ -15,10 +15,12 @@ import {
   Moon,
   Plus,
   Settings,
+  Smartphone,
   Sun,
   Wallet,
   X,
 } from 'lucide-react';
+import { useInstall } from '../../lib/pwa';
 import { Logo } from './Logo';
 import { useI18n } from '../../i18n';
 import { useTheme } from '../../hooks/useTheme';
@@ -86,6 +88,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           </div>
         ))}
       </nav>
+      <InstallNavLink onNavigate={onNavigate} />
       <div className="border-t border-slate-200/70 p-3 dark:border-white/[0.06]">
         <div className="flex items-center gap-3 rounded-xl p-2">
           <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-emerald-400 to-blue-500 text-sm font-bold text-white">
@@ -104,6 +107,25 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** «📲 Барнома дар телефон» — то насб нашудааст */
+function InstallNavLink({ onNavigate }: { onNavigate?: () => void }) {
+  const { t } = useI18n();
+  const inst = useInstall();
+  if (inst.standalone) return null;
+  return (
+    <div className="px-3 pb-2">
+      <NavLink
+        to="/settings#app"
+        onClick={onNavigate}
+        className="flex items-center gap-3 rounded-xl border border-dashed border-brand-500/40 px-3 py-2.5 text-sm font-medium text-brand-600 transition hover:bg-brand-500/10 dark:text-brand-300"
+      >
+        <Smartphone className="h-[18px] w-[18px]" />
+        {t('appTitle')}
+      </NavLink>
     </div>
   );
 }
@@ -162,7 +184,7 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
   const location = useLocation();
   const current = NAV.flatMap((g) => g.items).find((i) => (i.to === '/' ? location.pathname === '/' : location.pathname.startsWith(i.to)));
   return (
-    <header className="glass sticky top-0 z-30 border-x-0 border-t-0">
+    <header className="glass sticky top-0 z-30 border-x-0 border-t-0 pt-[env(safe-area-inset-top)]">
       <div className="flex h-16 items-center gap-3 px-4 sm:px-6 lg:px-8">
         <button onClick={onMenu} className="rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-white/10 lg:hidden" aria-label="menu">
           <Menu className="h-5 w-5" />
@@ -195,7 +217,10 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
           >
             {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
-          <QuickAddButton />
+          {/* Дар телефон тугмаи калони ➕ дар поён аст */}
+          <div className="hidden lg:block">
+            <QuickAddButton />
+          </div>
         </div>
       </div>
     </header>
@@ -205,11 +230,11 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
 function BottomNav() {
   const { t } = useI18n();
   const items = [
-    { to: '/', key: 'nav_dashboard' as const, icon: LayoutDashboard },
-    { to: '/income', key: 'nav_income' as const, icon: ArrowDownLeft },
-    { to: '/expenses', key: 'nav_expenses' as const, icon: ArrowUpRight },
-    { to: '/history', key: 'nav_history' as const, icon: History },
-    { to: '/reports', key: 'nav_reports' as const, icon: BarChart3 },
+    { to: '/', key: 'navs_home' as const, icon: LayoutDashboard },
+    { to: '/income', key: 'navs_income' as const, icon: ArrowDownLeft },
+    { to: '/expenses', key: 'navs_expenses' as const, icon: ArrowUpRight },
+    { to: '/history', key: 'navs_history' as const, icon: History },
+    { to: '/reports', key: 'navs_reports' as const, icon: BarChart3 },
   ];
   return (
     <nav className="glass fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-x-0 border-b-0 pb-[env(safe-area-inset-bottom)] lg:hidden">
@@ -223,10 +248,55 @@ function BottomNav() {
           }
         >
           <i.icon className="h-5 w-5" />
-          <span className="max-w-full truncate px-1">{t(i.key).split(' ')[0]}</span>
+          <span className="max-w-full truncate px-1">{t(i.key)}</span>
         </NavLink>
       ))}
     </nav>
+  );
+}
+
+/** Тугмаи калони ➕ дар телефон (бо як даст): Даромад / Хароҷот / Интиқол */
+function MobileFab() {
+  const { t } = useI18n();
+  const open = useQuickAdd();
+  const [show, setShow] = useState(false);
+  const items = [
+    { k: 'INCOME' as const, label: t('quickIncome'), icon: ArrowDownLeft, c: 'bg-emerald-500' },
+    { k: 'EXPENSE' as const, label: t('quickExpense'), icon: ArrowUpRight, c: 'bg-rose-500' },
+    { k: 'TRANSFER' as const, label: t('quickTransfer'), icon: ArrowLeftRight, c: 'bg-blue-500' },
+  ];
+  return (
+    <div className="lg:hidden">
+      {show && <div className="fixed inset-0 z-30 animate-fade-in bg-black/40 backdrop-blur-[2px]" onClick={() => setShow(false)} />}
+      <div className="fixed right-4 z-40 flex flex-col items-end gap-3" style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}>
+        {show &&
+          items.map((i, idx) => (
+            <button
+              key={i.k}
+              onClick={() => {
+                setShow(false);
+                open(i.k);
+              }}
+              className="flex animate-fade-up items-center gap-3"
+              style={{ animationDelay: `${(items.length - idx) * 40}ms` }}
+            >
+              <span className="rounded-xl bg-white px-3 py-1.5 text-sm font-semibold text-slate-800 shadow-lg dark:bg-ink-800 dark:text-slate-100">
+                {i.label}
+              </span>
+              <span className={clsx('grid h-12 w-12 place-items-center rounded-full text-white shadow-lg', i.c)}>
+                <i.icon className="h-5 w-5" />
+              </span>
+            </button>
+          ))}
+        <button
+          onClick={() => setShow((v) => !v)}
+          aria-label={t('fabAdd')}
+          className="grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-brand-600 to-blue-600 text-white shadow-glow transition active:scale-95"
+        >
+          <Plus className={clsx('h-6 w-6 transition-transform duration-200', show && 'rotate-45')} />
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -234,6 +304,10 @@ export function AppLayout() {
   const [drawer, setDrawer] = useState(false);
   const location = useLocation();
   useEffect(() => setDrawer(false), [location.pathname]);
+  // Саҳифаи нав ҳамеша аз боло кушода мешавад (на аз ҷое, ки саҳифаи қаблӣ scroll шуда буд)
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
   return (
     <QuickAddProvider>
       <div className="min-h-screen lg:pl-72">
@@ -243,7 +317,7 @@ export function AppLayout() {
         {drawer && (
           <div className="fixed inset-0 z-50 lg:hidden">
             <div className="absolute inset-0 animate-fade-in bg-black/50 backdrop-blur-sm" onClick={() => setDrawer(false)} />
-            <aside className="absolute inset-y-0 left-0 w-72 animate-slide-in bg-white shadow-2xl dark:bg-ink-900">
+            <aside className="absolute inset-y-0 left-0 w-72 animate-slide-in bg-white pt-[env(safe-area-inset-top)] shadow-2xl dark:bg-ink-900">
               <button onClick={() => setDrawer(false)} className="absolute right-3 top-5 rounded-lg p-2 text-slate-400" aria-label="close">
                 <X className="h-5 w-5" />
               </button>
@@ -252,9 +326,10 @@ export function AppLayout() {
           </div>
         )}
         <Topbar onMenu={() => setDrawer(true)} />
-        <main className="mx-auto max-w-[1400px] px-4 pb-28 pt-6 sm:px-6 lg:px-8 lg:pb-12">
+        <main className="mx-auto max-w-[1400px] px-4 pb-40 pt-6 sm:px-6 lg:px-8 lg:pb-12">
           <Outlet />
         </main>
+        <MobileFab />
         <BottomNav />
       </div>
     </QuickAddProvider>

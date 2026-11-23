@@ -4,6 +4,10 @@
 
 @layer base {
   html { -webkit-tap-highlight-color: transparent; }
+  /* Ҳимоя: саҳифа ҳеҷ гоҳ ба паҳлу scroll намешавад ва телефон онро хурд (zoom out) намекунад */
+  body { overflow-x: clip; }
+  /* Унсурҳои grid аз сутуни худ васеътар намешаванд (матни дароз сутунро "кашол" намедиҳад) */
+  .grid > * { min-width: 0; }
   body {
     @apply bg-slate-50 text-slate-900 antialiased dark:bg-ink-950 dark:text-slate-100;
     font-feature-settings: 'tnum' 1, 'cv11' 1;
@@ -23,12 +27,14 @@
 @layer components {
   .card {
     @apply rounded-2xl border border-slate-200/80 bg-white shadow-card dark:border-white/[0.06] dark:bg-ink-900/70 dark:shadow-none;
+    scroll-margin-top: 5rem;
   }
   .glass {
     @apply border border-white/40 bg-white/70 backdrop-blur-xl dark:border-white/[0.07] dark:bg-ink-900/60;
   }
   .input {
-    @apply h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition
+    /* 16px дар телефон — iPhone ҳангоми пахш кардан экранро калон (zoom) намекунад */
+    @apply h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-base text-slate-900 outline-none transition sm:text-sm
       placeholder:text-slate-400 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/15
       disabled:opacity-60 dark:border-white/10 dark:bg-ink-850 dark:text-slate-100 dark:placeholder:text-slate-500;
   }

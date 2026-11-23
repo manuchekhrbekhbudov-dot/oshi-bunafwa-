@@ -26,6 +26,7 @@ import { TxTable } from '../components/TxTable';
 import { formatDay, greeting } from '../lib/dates';
 import { formatMoney, isNegative } from '../lib/format';
 import { useQuickAdd } from '../components/layout/QuickAdd';
+import { InstallBanner } from '../components/InstallApp';
 import type { AccountType } from '../lib/types';
 
 export const ACCOUNT_ICON: Record<AccountType, typeof Wallet> = {
@@ -44,6 +45,7 @@ function StatCard({
   sub,
   delay = 0,
   big,
+  wide,
 }: {
   label: string;
   value: string;
@@ -53,6 +55,8 @@ function StatCard({
   sub?: React.ReactNode;
   delay?: number;
   big?: boolean;
+  /** Дар телефон тамоми сатрро мегирад */
+  wide?: boolean;
 }) {
   const tones = {
     green: 'from-emerald-500/20 to-emerald-500/0 text-emerald-500',
@@ -62,7 +66,7 @@ function StatCard({
   };
   return (
     <div
-      className={clsx('card relative animate-fade-up overflow-hidden p-5', big && 'sm:col-span-2')}
+      className={clsx('card relative animate-fade-up overflow-hidden p-4 sm:p-5', big && 'col-span-2', wide && 'col-span-2 sm:col-span-1')}
       style={{ animationDelay: `${delay}ms` }}
     >
       <div className={clsx('pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-gradient-to-br blur-2xl', tones[tone])} />
@@ -72,7 +76,7 @@ function StatCard({
           <p
             className={clsx(
               'num mt-2 break-words font-extrabold leading-tight tracking-tight',
-              big ? 'text-3xl sm:text-4xl' : 'text-xl xl:text-lg 2xl:text-2xl',
+              big ? 'text-3xl sm:text-4xl' : 'text-lg sm:text-xl xl:text-lg 2xl:text-2xl',
               isNegative(value) && 'text-rose-500',
             )}
           >
@@ -80,7 +84,7 @@ function StatCard({
           </p>
           {sub && <div className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">{sub}</div>}
         </div>
-        <span className={clsx('grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br', tones[tone])}>
+        <span className={clsx('hidden h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br sm:grid', tones[tone])}>
           <Icon className="h-5 w-5" />
         </span>
       </div>
@@ -110,7 +114,7 @@ export default function DashboardPage() {
           <h1 className="mt-1 text-2xl font-extrabold tracking-tight sm:text-3xl">{t('nav_dashboard')}</h1>
           {d && <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-500"><CalendarDays className="h-3.5 w-3.5" />{formatDay(d.today, lang, true)}</p>}
         </div>
-        <div className="grid grid-cols-3 gap-2 sm:flex">
+        <div className="hidden gap-2 lg:flex">
           <button onClick={() => quick('INCOME')} className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-600 transition hover:bg-emerald-500/20 dark:text-emerald-400">
             <ArrowDownLeft className="h-4 w-4" /> {t('quickIncome')}
           </button>
@@ -123,10 +127,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      <InstallBanner />
       <MissingRatesNote currencies={missing} />
 
       {!d ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <Skeleton key={i} className="h-[118px]" />
           ))}
@@ -134,8 +139,8 @@ export default function DashboardPage() {
       ) : (
         <>
           {/* Hero balance + today */}
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="relative animate-fade-up overflow-hidden rounded-2xl bg-gradient-to-br from-brand-700 via-brand-600 to-blue-600 p-6 text-white shadow-glow sm:col-span-2">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+            <div className="relative animate-fade-up overflow-hidden rounded-2xl bg-gradient-to-br from-brand-700 via-brand-600 to-blue-600 p-6 text-white shadow-glow col-span-2">
               <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
               <div className="absolute -bottom-16 left-10 h-40 w-40 rounded-full bg-emerald-400/20 blur-2xl" />
               <div className="relative">
@@ -157,8 +162,8 @@ export default function DashboardPage() {
             <StatCard label={t('todayExpense')} value={d.todaySummary.expense} currency={base} icon={TrendingDown} tone="red" delay={120} sub={`${d.todaySummary.expenseCount} ${t('operations')}`} />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard label={t('todayNet')} value={d.todaySummary.net} currency={base} icon={Wallet} tone="violet" delay={160} />
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+            <StatCard label={t('todayNet')} value={d.todaySummary.net} currency={base} icon={Wallet} tone="violet" delay={160} wide />
             <StatCard label={t('monthIncome')} value={d.monthSummary.income} currency={base} icon={ArrowDownLeft} tone="green" delay={200} sub={`${d.monthSummary.incomeCount} ${t('operations')}`} />
             <StatCard label={t('monthExpense')} value={d.monthSummary.expense} currency={base} icon={ArrowUpRight} tone="red" delay={240} sub={`${d.monthSummary.expenseCount} ${t('operations')}`} />
             <StatCard
@@ -168,6 +173,7 @@ export default function DashboardPage() {
               icon={HandCoins}
               tone="blue"
               delay={280}
+              wide
               sub={
                 <span className="flex flex-wrap gap-x-3 gap-y-1">
                   <span>{t('debtsLent')}: <b className="num text-emerald-500">{formatMoney(d.debts.lent.remaining, base)}</b></span>

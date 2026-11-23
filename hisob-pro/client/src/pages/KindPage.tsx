@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Decimal from 'decimal.js';
 import { Plus, Search, Hash, Sigma, TrendingUp, TrendingDown } from 'lucide-react';
 import { useI18n } from '../i18n';
@@ -61,6 +62,17 @@ export default function KindPage({ kind }: { kind: 'INCOME' | 'EXPENSE' }) {
     setFormOpen(true);
   };
 
+  // Аз нишонаи барнома дар телефон: "Хароҷоти нав" → /expenses?new=1 → форма фавран кушода мешавад
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    if (params.get('new') === '1') {
+      openNew();
+      params.delete('new');
+      setParams(params, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -98,22 +110,26 @@ export default function KindPage({ kind }: { kind: 'INCOME' | 'EXPENSE' }) {
 
       {s && <MissingRatesNote currencies={s.missingRates} />}
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
         {[
           { l: isIncome ? t('incomeTotal') : t('expenseTotal'), v: formatMoney(total, base), i: isIncome ? TrendingUp : TrendingDown, c: isIncome ? 'text-emerald-500 bg-emerald-500/10' : 'text-rose-500 bg-rose-500/10' },
           { l: t('countOps'), v: String(count), i: Hash, c: 'text-blue-500 bg-blue-500/10' },
           { l: t('average'), v: formatMoney(avg, base), i: Sigma, c: 'text-brand-500 bg-brand-500/10' },
         ].map((x, i) =>
           report.isLoading ? (
-            <Skeleton key={i} className="h-24" />
+            <Skeleton key={i} className={i === 0 ? 'col-span-2 h-24 sm:col-span-1' : 'h-24'} />
           ) : (
-            <div key={i} className="card flex animate-fade-up items-center gap-4 p-5" style={{ animationDelay: `${i * 60}ms` }}>
-              <span className={`grid h-11 w-11 place-items-center rounded-xl ${x.c}`}>
+            <div
+              key={i}
+              className={`card flex animate-fade-up items-center gap-3 p-4 sm:gap-4 sm:p-5 ${i === 0 ? 'col-span-2 sm:col-span-1' : ''}`}
+              style={{ animationDelay: `${i * 60}ms` }}
+            >
+              <span className={`${i === 0 ? 'grid' : 'hidden sm:grid'} h-11 w-11 shrink-0 place-items-center rounded-xl ${x.c}`}>
                 <x.i className="h-5 w-5" />
               </span>
               <div className="min-w-0">
                 <p className="text-xs text-slate-500">{x.l}</p>
-                <p className="num truncate text-xl font-extrabold">{x.v}</p>
+                <p className="num break-words text-lg font-extrabold leading-tight sm:text-xl">{x.v}</p>
               </div>
             </div>
           ),
