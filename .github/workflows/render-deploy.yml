@@ -1,0 +1,32 @@
+# HISOB PRO — насби худкор дар Render пас аз ҳар push ба main.
+# Render хабари push-ро худаш намегирад (барномаи Render дар GitHub насб нест),
+# бинобар ин GitHub "Deploy Hook"-и Render-ро даъват мекунад.
+# Танзим (як бор): Render → hisob-pro → Settings → Deploy Hook → нусха →
+#   GitHub → Settings → Secrets and variables → Actions → New repository secret:
+#   Name: RENDER_DEPLOY_HOOK, Secret: ҳамон линк.
+name: Насб дар Render
+
+on:
+  push:
+    branches: [main]
+    paths: ['hisob-pro/**', 'render.yaml']
+  workflow_dispatch:
+
+concurrency:
+  group: render-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Оғози насб дар Render
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "RENDER_DEPLOY_HOOK ҳанӯз танзим нашудааст — насб гузаронида шуд."
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK" -o /dev/null -w "Render deploy hook → HTTP %{http_code}\n"
