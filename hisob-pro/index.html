@@ -5,23 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>HISOB PRO</title>
   <meta name="description" content="HISOB PRO — Пулҳои худро оқилона идора кунед." />
-  <meta http-equiv="refresh" content="0; url=https://hisob-pro.onrender.com/" />
+  <meta name="theme-color" content="#07070c" />
   <link rel="icon" type="image/svg+xml" href="client/public/favicon.svg" />
+  <noscript><meta http-equiv="refresh" content="0; url=https://hisob-pro.onrender.com/" /></noscript>
   <style>
     :root { color-scheme: dark; }
     body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #07070c; color: #e2e8f0;
-      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; text-align: center; padding: 16px; }
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; text-align: center; padding: 16px; box-sizing: border-box; }
     .logo { width: 64px; height: 64px; border-radius: 18px; margin: 0 auto 16px; display: grid; place-items: center;
       background: linear-gradient(135deg, #8b5cf6, #2563eb); font-weight: 900; font-size: 26px; color: #fff;
       box-shadow: 0 8px 30px -8px rgba(139, 92, 246, .6); }
     h1 { margin: 0; font-size: 24px; } h1 span { color: #a78bfa; }
-    p { color: #94a3b8; font-size: 14px; }
-    .spin { width: 28px; height: 28px; margin: 20px auto; border: 3px solid #2a2a40; border-top-color: #8b5cf6;
+    p { color: #94a3b8; font-size: 14px; margin: 8px 0; }
+    .spin { width: 28px; height: 28px; margin: 22px auto 10px; border: 3px solid #2a2a40; border-top-color: #8b5cf6;
       border-radius: 50%; animation: s 1s linear infinite; }
     @keyframes s { to { transform: rotate(360deg); } }
+    #slow { display: none; }
     a { color: #a78bfa; font-weight: 600; }
   </style>
-  <script>location.replace('https://hisob-pro.onrender.com/');</script>
 </head>
 <body>
   <main>
@@ -29,8 +30,30 @@
     <h1>HISOB <span>PRO</span></h1>
     <p>Пулҳои худро оқилона идора кунед.</p>
     <div class="spin"></div>
-    <p>Платформа кушода мешавад… (бори аввал то 1 дақиқа)</p>
+    <p id="msg">Кушода мешавад…</p>
+    <p id="slow">Сервер бедор мешавад — <b id="sec">0</b> с (бори аввал то 1 дақиқа)</p>
     <p><a href="https://hisob-pro.onrender.com/">Агар худкор кушода нашавад, инҷоро пахш кунед</a></p>
   </main>
+  <script>
+    // Аввал месанҷем, ки сервер бедор аст; баъд мегузарем — то саҳифаи "waking up"-и Render дида нашавад.
+    var TARGET = 'https://hisob-pro.onrender.com/';
+    var start = Date.now(), done = false;
+    function go() { if (!done) { done = true; location.replace(TARGET); } }
+    function ping() {
+      if (done) return;
+      var ctrl = 'AbortController' in window ? new AbortController() : null;
+      var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 70000);
+      fetch(TARGET + 'api/health?t=' + Date.now(), { cache: 'no-store', signal: ctrl ? ctrl.signal : undefined })
+        .then(function (r) { clearTimeout(timer); if (r.ok) go(); else setTimeout(ping, 2000); })
+        .catch(function () { clearTimeout(timer); setTimeout(ping, 2000); });
+    }
+    ping();
+    setTimeout(go, 90000); // ба ҳар ҳол
+    setInterval(function () {
+      var s = Math.round((Date.now() - start) / 1000);
+      if (s >= 2) { document.getElementById('slow').style.display = 'block'; document.getElementById('msg').style.display = 'none'; }
+      document.getElementById('sec').textContent = s;
+    }, 500);
+  </script>
 </body>
 </html>

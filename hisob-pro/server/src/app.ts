@@ -30,7 +30,13 @@ export function createApp() {
   app.use(express.json({ limit: '200kb' }));
   app.use(cookieParser());
 
-  app.get('/api/health', (_req, res) => res.json({ ok: true, name: 'HISOB PRO', time: new Date().toISOString() }));
+  // Ҷамъиятӣ ва бехатар: саҳифаи github.io месанҷад, ки сервер бедор аст (бе маълумоти корбар)
+  app.get('/api/health', (_req, res) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.set('Cache-Control', 'no-store');
+    res.json({ ok: true, name: 'HISOB PRO', time: new Date().toISOString() });
+  });
 
   const api = express.Router();
   api.use(csrfGuard(allowedOrigins));

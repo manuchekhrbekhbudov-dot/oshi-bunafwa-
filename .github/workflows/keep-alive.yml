@@ -1,0 +1,19 @@
+# HISOB PRO — сервери ройгони Render-ро бедор нигоҳ медорад (захира барои худ-пинги сервер).
+# Render баъд аз 15 дақиқаи беамалӣ серверро "хоб" мекунад; ин ҳар 10 дақиқа онро месанҷад.
+name: Бедор нигоҳ доштани сервер
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Санҷиши /api/health
+        env:
+          URL: ${{ vars.HISOB_URL || 'https://hisob-pro.onrender.com' }}
+        # || true — то ягон бор хатогии шабака ба шумо email нафиристад
+        run: curl -sS -m 150 -o /dev/null -w "HTTP %{http_code} in %{time_total}s\n" "$URL/api/health" || true

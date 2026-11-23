@@ -19,6 +19,19 @@ if (telegramEnabled()) {
   }, 5 * 60_000).unref();
 }
 
+// Render (нақшаи ройгон) серверро баъд аз 15 дақиқаи беамалӣ "хоб" мекунад → кушодани сайт ~1 дақиқа.
+// Сервер ҳар 10 дақиқа ба суроғаи ҷамъиятии худ дархост мефиристад ва бедор мемонад.
+// Хомӯш кардан: KEEP_ALIVE=off. (Як сервер 24/7 ≈ 744 соат — дар ҳудуди 750 соати ройгони Render.)
+const publicUrl = process.env.RENDER_EXTERNAL_URL;
+if (publicUrl && process.env.KEEP_ALIVE !== 'off') {
+  setInterval(() => {
+    fetch(`${publicUrl.replace(/\/$/, '')}/api/health`, { headers: { 'user-agent': 'hisob-keep-alive' } }).catch(
+      () => undefined,
+    );
+  }, 10 * 60_000).unref();
+  console.log('  Keep-alive: ҳар 10 дақиқа');
+}
+
 // Тоза кардани сессияҳои кӯҳна ҳар 6 соат
 setInterval(() => {
   prisma.session.deleteMany({ where: { expiresAt: { lt: new Date() } } }).catch(() => undefined);
