@@ -40,15 +40,12 @@
     var start = Date.now(), done = false;
     function go() { if (!done) { done = true; location.replace(TARGET); } }
     function ping() {
-      if (done) return;
+      // Render дархостро то бедор шудани сервер нигоҳ медорад — ҳар гуна ҷавоб (ҳатто хатогии CORS) = сервер тайёр
       var ctrl = 'AbortController' in window ? new AbortController() : null;
-      var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 70000);
-      fetch(TARGET + 'api/health?t=' + Date.now(), { cache: 'no-store', signal: ctrl ? ctrl.signal : undefined })
-        .then(function (r) { clearTimeout(timer); if (r.ok) go(); else setTimeout(ping, 2000); })
-        .catch(function () { clearTimeout(timer); setTimeout(ping, 2000); });
+      setTimeout(function () { if (ctrl) ctrl.abort(); go(); }, 75000);
+      fetch(TARGET + 'api/health?t=' + Date.now(), { cache: 'no-store', signal: ctrl ? ctrl.signal : undefined }).then(go, go);
     }
     ping();
-    setTimeout(go, 90000); // ба ҳар ҳол
     setInterval(function () {
       var s = Math.round((Date.now() - start) / 1000);
       if (s >= 2) { document.getElementById('slow').style.display = 'block'; document.getElementById('msg').style.display = 'none'; }
