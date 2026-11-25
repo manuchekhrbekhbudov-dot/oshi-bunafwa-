@@ -1,4 +1,3 @@
-import crypto from 'node:crypto';
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
@@ -18,6 +17,7 @@ import {
   verifyPassword,
 } from '../services/auth.js';
 import { createUserDefaults } from '../services/defaults.js';
+import { codeHash, issueResetCode, RESET_CODE_MAX_ATTEMPTS, RESET_CODE_TTL_MIN } from '../services/passwordReset.js';
 import { sendMail } from '../services/mail.js';
 import { currencySchema } from '../lib/validators.js';
 import {
@@ -63,13 +63,6 @@ const publicUser = {
 
 // Hash барои муқоисаи "бекора" — то вақти ҷавоб нишон надиҳад, ки корбар вуҷуд дорад ё не
 let dummyHash: Promise<string> | null = null;
-const RESET_CODE_TTL_MIN = 15;
-const RESET_CODE_MAX_ATTEMPTS = 5;
-/** 6 рақами тасодуфӣ (криптографӣ) */
-const resetCode = () => String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
-/** Код бо id-и корбар hash мешавад — кодҳои якхелаи корбарони гуногун бархӯрд намекунанд */
-const codeHash = (userId: string, code: string) => hashToken(`reset-code:${userId}:${code}`);
-
 const getDummyHash = () => (dummyHash ??= hashPassword(randomToken()));
 
 const registrationClosed = () =>
@@ -94,7 +87,7 @@ router.get(
       open: policy.email || policy.telegram,
       email: policy.email,
       telegram: policy.telegram,
-      botUsername: policy.telegram ? await botUsername() : null,
+      botUsername: await botUsername(), // барои маслиҳати «/code» ҳамеша лозим аст
     });
   }),
 );
@@ -232,11 +225,7 @@ router.post(
     const user = await findUserByLogin((body.login || body.email)!);
     if (user) {
       // Коди 6-рақама (15 дақиқа) — дар Telegram ё email; линк лозим нест
-      const code = resetCode();
-      await prisma.passwordResetToken.deleteMany({ where: { userId: user.id, usedAt: null } });
-      await prisma.passwordResetToken.create({
-        data: { userId: user.id, tokenHash: codeHash(user.id, code), expiresAt: new Date(Date.now() + RESET_CODE_TTL_MIN * 60_000) },
-      });
+      const code = await issueResetCode(user.id);
       let sent = false;
       const tg = await prisma.telegramLink.findUnique({ where: { userId: user.id }, select: { chatId: true } });
       if (tg) {

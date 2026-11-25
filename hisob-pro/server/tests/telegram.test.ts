@@ -202,6 +202,29 @@ describe.skipIf(!hasDb)('Telegram-бот (integration)', () => {
     expect((await A.get('/api/transactions?q=нон')).body.total).toBe(1);
   });
 
+  it('/code: коди парол рост дар Telegram; рақам ба ҳисоб сабт мешавад', async () => {
+    await text('/code');
+    const codeMsg = messages().at(-2)!;
+    expect(codeMsg).toContain('Коди барқарорсозии парол');
+    expect(codeMsg).toContain('tg@test.tj'); // логин нишон дода мешавад
+    expect(lastMsg()).toContain('Рақами телефон'); // рақам ҳанӯз нест → тугмаи рақам
+    const code = codeMsg.match(/<code>(\d{6})<\/code>/)![1];
+    await request(app).post('/api/auth/reset-password').send({ login: 'tg@test.tj', code, password: 'tgparol99' }).expect(200);
+    await A.post('/api/auth/login').send({ login: 'tg@test.tj', password: 'tgparol99' }).expect(200);
+
+    // рақами каси дигар — не
+    const contact = (user_id: number, phone: string) =>
+      hook({ message: { contact: { phone_number: phone, user_id }, chat: { id: CHAT, type: 'private' }, from: { id: CHAT } } });
+    await contact(12345, '+992900000001');
+    expect(lastMsg()).toContain('рақами худатонро');
+    // рақами худ → сабт; баъд воридшавӣ ва код бо рақам
+    await contact(CHAT, '992 90 111 22 33');
+    expect(lastMsg()).toContain('+992901112233');
+    await request(app).post('/api/auth/login').send({ login: '901112233', password: 'tgparol99' }).expect(200);
+    await request(app).post('/api/auth/forgot-password').send({ login: '+992901112233' }).expect(200);
+    expect(lastMsg()).toContain('Коди барқарорсозии парол');
+  });
+
   it('/daily хомӯш мекунад; /stop ҷудо мекунад', async () => {
     await text('/daily');
     expect(lastMsg()).toContain('хомӯш');

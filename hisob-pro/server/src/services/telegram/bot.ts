@@ -27,6 +27,8 @@ import { accountBalances } from '../ledger.js';
 import { detectImageMime, MAX_PHOTO_BYTES, purchasePhotos, savePhoto } from '../photos.js';
 import { attachPendingToChat, completeRegistrationFromContact } from '../registration.js';
 import { initialMarks, normalizeTime, routineDue } from '../routines.js';
+import { issueResetCode, RESET_CODE_TTL_MIN } from '../passwordReset.js';
+import { normalizePhone } from '../registration.js';
 import {
   alertMessage,
   comparisonBlock,
@@ -91,6 +93,7 @@ export async function setupWebhook(publicUrl: string) {
       { command: 'limit', description: 'Меъёри рӯзона / Дневная норма' },
       { command: 'daily', description: 'Ҳисоботи 21:00 / Отчёт в 21:00' },
       { command: 'routine', description: 'Ҷадвали рӯз / Распорядок дня' },
+      { command: 'code', description: 'Коди пароли нав / Код для пароля' },
       { command: 'help', description: 'Кӯмак / Помощь' },
     ],
   }).catch(() => undefined);
@@ -531,6 +534,13 @@ const contactKeyboard = (lang: Lang) => ({
   one_time_keyboard: true,
 });
 
+/** «📱 Фиристодани рақам» барои корбари пайвастшуда (сабти рақам ба ҳисоб) */
+const phoneKeyboard = (lang: Lang) => ({
+  keyboard: [[{ text: T[lang].regContactButton, request_contact: true }]],
+  resize_keyboard: true,
+  one_time_keyboard: true,
+});
+
 const skipKeyboard = (lang: Lang) => ({ inline_keyboard: [[{ text: T[lang].skip, callback_data: 'income:skip' }]] });
 
 /** Менюи доимӣ дар поёни чат */
@@ -734,7 +744,22 @@ export async function handleUpdate(update: TgUpdate) {
   // 📱 Контакт — тасдиқи рақам барои сабти ном
   if (msg.contact) {
     const r = await completeRegistrationFromContact(chatId, String(msg.from?.id ?? ''), msg.contact, msg.from?.username ?? null);
-    if (r.status === 'no_pending') return send(chatId, T.tg.notLinked, { reply_markup: { remove_keyboard: true } });
+    if (r.status === 'no_pending') {
+      // Корбари аллакай пайвастшуда рақами худро мефиристад → ба ҳисоб сабт мешавад (воридшавӣ ва код бо рақам)
+      const linked = await prisma.telegramLink.findUnique({ where: { chatId } });
+      if (!linked) return send(chatId, T.tg.notLinked, { reply_markup: { remove_keyboard: true } });
+      const lang = await userLang(linked.userId);
+      const t = T[lang];
+      if (!msg.contact.user_id || String(msg.contact.user_id) !== String(msg.from?.id ?? '')) {
+        return send(chatId, t.phoneNotOwn, { reply_markup: phoneKeyboard(lang) });
+      }
+      const phone = normalizePhone(msg.contact.phone_number);
+      if (!phone) return send(chatId, t.regBadPhone, { reply_markup: menuKeyboard(lang) });
+      const other = await prisma.user.findUnique({ where: { phone } });
+      if (other && other.id !== linked.userId) return send(chatId, t.phoneTaken, { reply_markup: menuKeyboard(lang) });
+      await prisma.user.update({ where: { id: linked.userId }, data: { phone } });
+      return send(chatId, t.phoneSaved(phone), { reply_markup: menuKeyboard(lang) });
+    }
     const t = T[r.language];
     if (r.status === 'not_own_contact') return send(chatId, t.regNotOwn, { reply_markup: contactKeyboard(r.language) });
     if (r.status === 'done') {
@@ -876,6 +901,17 @@ export async function handleUpdate(update: TgUpdate) {
       const on = !link.notifyDaily;
       await prisma.telegramLink.update({ where: { id: link.id }, data: { notifyDaily: on } });
       return send(chatId, on ? t.dailyOn : t.dailyOff);
+    }
+    case 'code':
+    case 'kod':
+    case 'reset': {
+      // Коди барқарорсозии парол рост дар Telegram (бе ворид кардани логин дар сайт)
+      const u = await prisma.user.findUniqueOrThrow({ where: { id: link.userId }, select: { email: true, phone: true } });
+      const code = await issueResetCode(link.userId);
+      const logins = [u.phone, u.email].filter((x): x is string => !!x);
+      await send(chatId, t.resetBotCode(code, RESET_CODE_TTL_MIN, logins));
+      if (!u.phone) await send(chatId, t.askPhone, { reply_markup: phoneKeyboard(lang) });
+      return;
     }
     case 'routine':
     case 'routines': {

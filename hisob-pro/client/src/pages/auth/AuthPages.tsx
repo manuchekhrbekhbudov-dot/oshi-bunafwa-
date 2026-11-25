@@ -326,6 +326,7 @@ export function ForgotPasswordPage() {
   const { t } = useI18n();
   const { login } = useAuth();
   const navigate = useNavigate();
+  const bot = useRegistration()?.botUsername;
   const [loginId, setLoginId] = useState('');
   const [step, setStep] = useState<'login' | 'code'>('login');
   const [code, setCode] = useState('');
@@ -384,6 +385,29 @@ export function ForgotPasswordPage() {
           <Button type="submit" size="lg" className="w-full justify-center" loading={loading} icon={<Send className="h-4 w-4" />}>
             {t('sendCode')}
           </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="lg"
+            className="w-full justify-center"
+            onClick={() => {
+              if (!loginId.trim()) return setErr(t('loginIdFirst'));
+              setErr('');
+              setInfo('');
+              setStep('code');
+            }}
+          >
+            {t('haveCode')}
+          </Button>
+          {bot && (
+            <p className="rounded-xl bg-blue-500/10 px-3 py-2.5 text-xs text-blue-700 dark:text-blue-300">
+              {t('codeBotHint')}{' '}
+              <a href={`https://t.me/${bot}`} target="_blank" rel="noopener noreferrer" className="font-bold underline">
+                @{bot}
+              </a>{' '}
+              → <code className="font-bold">/code</code>
+            </p>
+          )}
           <Link to="/login" className="block text-center text-sm font-semibold text-brand-500">
             {t('backToLogin')}
           </Link>
@@ -397,6 +421,15 @@ export function ForgotPasswordPage() {
             </div>
           )}
           <FormError msg={err} />
+          {bot && (
+            <p className="rounded-xl bg-blue-500/10 px-3 py-2.5 text-xs text-blue-700 dark:text-blue-300">
+              {t('codeBotHint')}{' '}
+              <a href={`https://t.me/${bot}`} target="_blank" rel="noopener noreferrer" className="font-bold underline">
+                @{bot}
+              </a>{' '}
+              → <code className="font-bold">/code</code>
+            </p>
+          )}
           <Field label={t('codeLabel')} error={fields.code}>
             <Input
               value={code}
