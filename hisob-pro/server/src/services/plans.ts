@@ -21,7 +21,8 @@ export function goalStats(g: Pick<Goal, 'target' | 'deadline'>, contributions: P
     daysLeft = end >= today ? daysBetween(today, end).length : 0;
     if (remaining.gt(0) && daysLeft > 0) {
       perDay = money(remaining.div(daysLeft).toDecimalPlaces(2, 0));
-      perMonth = money(remaining.div(Math.max(1, daysLeft / 30)).toDecimalPlaces(2, 0));
+      // моҳи миёна = 30.44 рӯз; агар камтар аз як моҳ монда бошад — ҳамаи боқимонда дар ҳамин моҳ
+      perMonth = money(remaining.div(Math.max(1, daysLeft / 30.4375)).toDecimalPlaces(2, 0));
     }
   }
   return {

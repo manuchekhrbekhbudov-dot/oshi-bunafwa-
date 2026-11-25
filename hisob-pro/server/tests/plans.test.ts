@@ -36,6 +36,11 @@ describe('нақшаҳо ва қурб (ҳисобкунии соф)', () => {
     const deadline = fromZonedTime('2026-12-11T00:00', 'Asia/Dushanbe'); // охири 10 декабр
     const s = goalStats({ target: '3000', deadline } as never, [{ amount: '500' }, { amount: '700' }, { amount: '-200' }] as never, '2026-12-01');
     expect(s).toMatchObject({ saved: '1000.00', remaining: '2000.00', progress: 33, achieved: false, daysLeft: 10, perDay: '200.00' });
+    // PlayStation: 6500 то 01.01.2027, имрӯз 25.11.2026 → 38 рӯз ≈ 1.25 моҳ
+    const ps = goalStats({ target: '6500', deadline: fromZonedTime('2027-01-02T00:00', 'Asia/Dushanbe') } as never, [] as never, '2026-11-25');
+    expect(ps).toMatchObject({ daysLeft: 38, perDay: '171.06', perMonth: '5206.42' });
+    // мӯҳлат гузашт
+    expect(goalStats({ target: '100', deadline: fromZonedTime('2026-01-02T00:00', 'Asia/Dushanbe') } as never, [] as never, '2026-11-25')).toMatchObject({ daysLeft: 0, perMonth: null });
     expect(goalStats({ target: '100', deadline: null } as never, [{ amount: '150' }] as never).achieved).toBe(true);
     expect(goalStats({ target: '100', deadline: null } as never, [{ amount: '150' }] as never).progress).toBe(100);
   });
@@ -110,6 +115,7 @@ describe.skipIf(!hasDb)('нақшаҳо ва қурб (integration)', () => {
   it('мақсад: сохтан, пул гузоштан, иҷро шудан (табрик дар Telegram)', async () => {
     await A.post('/api/goals').send({ title: '', target: '100' }).expect(400);
     await A.post('/api/goals').send({ title: 'Телефон', target: '-5' }).expect(400);
+    await A.post('/api/goals').send({ title: 'Кӯҳна', target: '100', deadline: '2020-01-01' }).expect(400); // санаи гузашта
     const g = (await A.post('/api/goals').send({ title: 'Телефон', target: '3000', deadline: '2027-03-01' }).expect(201)).body.goal;
     expect(g).toMatchObject({ title: 'Телефон', target: '3000.00', saved: '0.00', progress: 0, deadline: '2027-03-01' });
     let r = (await A.post(`/api/goals/${g.id}/contributions`).send({ amount: '1000' }).expect(201)).body.goal;

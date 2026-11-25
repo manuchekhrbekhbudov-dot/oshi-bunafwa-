@@ -532,7 +532,7 @@ async function goalCommand(userId: string, lang: Lang, args: string[]) {
     if (!goals.length) return t.goalsEmpty;
     const lines = goals.map((g) => {
       const st = goalStats(g, g.contributions);
-      return t.goalLine(g.title, fmt(st.saved, g.currency), fmt(g.target, g.currency), st.progress, st.perDay ? fmt(st.perDay, g.currency) : null);
+      return t.goalLine(g.title, fmt(st.saved, g.currency), fmt(g.target, g.currency), st.progress, st.perDay ? fmt(st.perDay, g.currency) : null, st.perMonth ? fmt(st.perMonth, g.currency) : null);
     });
     return [t.goalsTitle, '', ...lines, t.goalsHint].join('\n');
   }

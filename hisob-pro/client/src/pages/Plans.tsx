@@ -58,6 +58,7 @@ export const useRecurring = () =>
 
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const ddmm = (d: string) => d.slice(8, 10) + '.' + d.slice(5, 7);
+const fullDate = (d: string) => d.split('-').reverse().join('.');
 const STATUS_COLOR = { paid: 'green', skipped: 'blue', due: 'amber', overdue: 'red', upcoming: 'blue' } as const;
 
 /* ------------------------------ Мақсадҳо ------------------------------ */
@@ -126,7 +127,7 @@ function GoalFormModal({ open, onClose, initial }: { open: boolean; onClose: () 
           </div>
         </Field>
         <Field label={`${t('goalDeadline')} (${t('optional')})`} error={fields.deadline} className="col-span-2">
-          <Input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
+          <Input type="date" value={deadline} min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)} onChange={(e) => setDeadline(e.target.value)} invalid={!!fields.deadline} />
         </Field>
         <p className="col-span-2 text-xs text-slate-500">{t('goalNote')}</p>
       </form>
@@ -228,9 +229,24 @@ export function GoalProgress({ g, compact }: { g: Goal; compact?: boolean }) {
       </div>
       <p className="num mt-1 text-xs text-slate-500">
         {formatMoney(g.saved, g.currency)} / {formatMoney(g.target, g.currency)}
-        {!compact && g.perDay && !g.achieved && <> · {t('goalPerDay', { v: formatMoney(g.perDay, g.currency) })}</>}
-        {!compact && g.deadline && !g.achieved && <> · {t('goalUntil', { d: ddmm(g.deadline), n: g.daysLeft ?? 0 })}</>}
       </p>
+      {!compact && !g.achieved && (
+        g.deadline && g.daysLeft && g.perMonth ? (
+          // Асосӣ: ҳар моҳ чанд гузоштан лозим
+          <p className="mt-2 rounded-xl bg-brand-500/10 px-3 py-2 text-sm text-brand-700 dark:text-brand-200">
+            📅 {t('goalPerMonth', { v: formatMoney(g.perMonth, g.currency) })}
+            <span className="block text-xs opacity-80">
+              {t('goalPerDay', { v: formatMoney(g.perDay ?? '0', g.currency) })} · {t('goalUntil', { d: fullDate(g.deadline), n: g.daysLeft })}
+            </span>
+          </p>
+        ) : g.deadline && !g.daysLeft ? (
+          <p className="mt-2 rounded-xl bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-600 dark:text-rose-300">
+            {t('goalExpired', { d: fullDate(g.deadline) })}
+          </p>
+        ) : !g.deadline ? (
+          <p className="mt-2 text-xs text-slate-500">{t('goalNoDeadline')}</p>
+        ) : null
+      )}
     </div>
   );
 }

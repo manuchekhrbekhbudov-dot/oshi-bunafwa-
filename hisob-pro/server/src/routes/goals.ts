@@ -5,7 +5,7 @@ import { asyncHandler, parse, uid } from '../lib/http.js';
 import { badRequest, notFound } from '../lib/errors.js';
 import { parseAmount } from '../lib/money.js';
 import { amountSchema, currencySchema, daySchema, optionalText } from '../lib/validators.js';
-import { endOfDayExclusiveTz } from '../lib/dates.js';
+import { endOfDayExclusiveTz, todayKey } from '../lib/dates.js';
 import { goalStats } from '../services/plans.js';
 import { contributeToGoal } from '../services/planActions.js';
 
@@ -35,7 +35,11 @@ const body = z.object({
   target: amountSchema,
   currency: currencySchema.default('TJS'),
   // Санаи охир: охири ҳамон рӯз (Душанбе) нигоҳ дошта мешавад
-  deadline: daySchema.nullable().optional().transform((d) => (d ? endOfDayExclusiveTz(d) : d)),
+  deadline: daySchema
+    .nullable()
+    .optional()
+    .refine((d) => !d || d >= todayKey(), 'Санаи ояндаро интихоб кунед (на гузашта)')
+    .transform((d) => (d ? endOfDayExclusiveTz(d) : d)),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
 });
 
