@@ -142,17 +142,39 @@ describe.skipIf(!hasDb)('сабти ном тавассути рақами Teleg
     await request(app).post('/api/auth/register/telegram').send({ name: 'Иштибоҳ', email: 'owner@test.tj', password: 'parol1234' }).expect(409);
   });
 
-  it('фаромӯш кардани парол → линк ба Telegram → пароли нав', async () => {
+  it('фаромӯш кардани парол → коди 6-рақама ба Telegram → пароли нав', async () => {
+    const reset = (body: object) => request(app).post('/api/auth/reset-password').send(body);
     await request(app).post('/api/auth/forgot-password').send({ login: '+992901234567' }).expect(200);
     const m = last(5001)!;
-    expect(m.text).toContain('Барқарорсозии парол');
-    const token = decodeURIComponent(m.text.match(/token=([^"&\s]+)/)![1]);
-    await request(app).post('/api/auth/reset-password').send({ token, password: 'navparol55' }).expect(200);
+    expect(m.text).toContain('Коди барқарорсозии парол');
+    expect(m.text).not.toContain('http'); // линк нест — танҳо код
+    const code = m.text.match(/<code>(\d{6})<\/code>/)![1];
+    const wrong = code === '000000' ? '111111' : '000000';
+    // коди нодуруст ва корбари дигар — рад
+    expect((await reset({ login: '901234567', code: wrong, password: 'navparol55' }).expect(400)).body.error.code).toBe('INVALID_CODE');
+    await reset({ login: 'owner@test.tj', code, password: 'navparol55' }).expect(400);
+    await reset({ login: '901234567', code: '12ab', password: 'navparol55' }).expect(400);
+    // коди дуруст (бо +992 ё бе он)
+    await reset({ login: '901234567', code, password: 'navparol55' }).expect(200);
     await request(app).post('/api/auth/login').send({ login: '901234567', password: 'navparol55' }).expect(200);
+    // кодро бори дуюм истифода бурдан мумкин нест
+    await reset({ login: '901234567', code, password: 'boshqa1234' }).expect(400);
     // корбари номаълум — ҳамон ҷавоб, бе паём
     const n = sent.length;
     await request(app).post('/api/auth/forgot-password').send({ login: '+992111111111' }).expect(200);
     expect(sent.length).toBe(n);
+  });
+
+  it('5 кӯшиши нодуруст → код бекор мешавад', async () => {
+    await request(app).post('/api/auth/forgot-password').send({ login: '901234567' }).expect(200);
+    const code = last(5001)!.text.match(/<code>(\d{6})<\/code>/)![1];
+    const wrong = code === '000000' ? '111111' : '000000';
+    for (let i = 0; i < 5; i++) {
+      await request(app).post('/api/auth/reset-password').send({ login: '901234567', code: wrong, password: 'boshqa1234' }).expect(400);
+    }
+    // ҳатто коди дуруст дигар кор намекунад
+    await request(app).post('/api/auth/reset-password').send({ login: '901234567', code, password: 'boshqa1234' }).expect(400);
+    await request(app).post('/api/auth/login').send({ login: '901234567', password: 'navparol55' }).expect(200);
   });
 
   it('соҳиб сабти номро мепӯшад; корбари дигар наметавонад', async () => {

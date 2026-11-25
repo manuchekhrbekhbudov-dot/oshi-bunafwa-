@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
@@ -62,6 +63,13 @@ const publicUser = {
 
 // Hash барои муқоисаи "бекора" — то вақти ҷавоб нишон надиҳад, ки корбар вуҷуд дорад ё не
 let dummyHash: Promise<string> | null = null;
+const RESET_CODE_TTL_MIN = 15;
+const RESET_CODE_MAX_ATTEMPTS = 5;
+/** 6 рақами тасодуфӣ (криптографӣ) */
+const resetCode = () => String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
+/** Код бо id-и корбар hash мешавад — кодҳои якхелаи корбарони гуногун бархӯрд намекунанд */
+const codeHash = (userId: string, code: string) => hashToken(`reset-code:${userId}:${code}`);
+
 const getDummyHash = () => (dummyHash ??= hashPassword(randomToken()));
 
 const registrationClosed = () =>
@@ -222,28 +230,27 @@ router.post(
       req.body,
     );
     const user = await findUserByLogin((body.login || body.email)!);
-    let via: 'telegram' | 'email' | null = null;
     if (user) {
-      const token = randomToken();
+      // Коди 6-рақама (15 дақиқа) — дар Telegram ё email; линк лозим нест
+      const code = resetCode();
       await prisma.passwordResetToken.deleteMany({ where: { userId: user.id, usedAt: null } });
       await prisma.passwordResetToken.create({
-        data: { userId: user.id, tokenHash: hashToken(token), expiresAt: new Date(Date.now() + 60 * 60_000) },
+        data: { userId: user.id, tokenHash: codeHash(user.id, code), expiresAt: new Date(Date.now() + RESET_CODE_TTL_MIN * 60_000) },
       });
-      const link = `${config.appUrl}/reset-password?token=${encodeURIComponent(token)}`;
+      let sent = false;
       const tg = await prisma.telegramLink.findUnique({ where: { userId: user.id }, select: { chatId: true } });
       if (tg) {
-        await send(tg.chatId, T[user.language].resetLink(link)).then(
-          () => (via = 'telegram'),
+        await send(tg.chatId, T[user.language].resetCode(code, RESET_CODE_TTL_MIN)).then(
+          () => (sent = true),
           (e) => console.error('[auth] reset via telegram failed', e),
         );
       }
-      if (!via && user.email) {
+      if (!sent && user.email) {
         await sendMail(
           user.email,
-          'HISOB PRO — барқарорсозии парол / восстановление пароля',
-          `Салом, ${user.name}!\n\nБарои гузоштани пароли нав ба ин линк гузаред (1 соат эътибор дорад):\n${link}\n\nАгар шумо дархост накарда бошед, ин паёмро нодида гиред.`,
+          'HISOB PRO — коди барқарорсозӣ / код восстановления',
+          `Салом, ${user.name}!\n\nКоди барқарорсозии парол: ${code}\n(${RESET_CODE_TTL_MIN} дақиқа эътибор дорад)\n\nАгар шумо дархост накарда бошед, ин паёмро нодида гиред.`,
         );
-        via = 'email';
       }
     }
     // Ҳамеша ҳамон ҷавоб — то маълум нашавад, ки корбар вуҷуд дорад ё не
@@ -255,10 +262,39 @@ router.post(
   '/reset-password',
   authLimiter,
   asyncHandler(async (req, res) => {
-    const body = parse(z.object({ token: z.string().min(10).max(200), password: passwordSchema }), req.body);
-    const rec = await prisma.passwordResetToken.findUnique({ where: { tokenHash: hashToken(body.token) } });
-    if (!rec || rec.usedAt || rec.expiresAt < new Date()) {
-      throw badRequest('INVALID_TOKEN', 'Линк нодуруст ё муҳлаташ гузаштааст');
+    const body = parse(
+      z.union([
+        // нав: рақам/email + коди 6-рақама аз Telegram
+        z.object({ login: z.string().trim().min(1).max(200), code: z.string().trim().regex(/^\d{6}$/, 'Код — 6 рақам'), password: passwordSchema }),
+        // кӯҳна: линк бо token (барои паёмҳои пештар фиристодашуда)
+        z.object({ token: z.string().min(10).max(200), password: passwordSchema }),
+      ]),
+      req.body,
+    );
+    let rec;
+    if ('code' in body) {
+      const user = await findUserByLogin(body.login);
+      rec = user
+        ? await prisma.passwordResetToken.findFirst({
+            where: { userId: user.id, usedAt: null, expiresAt: { gt: new Date() } },
+            orderBy: { createdAt: 'desc' },
+          })
+        : null;
+      if (!rec) throw badRequest('INVALID_CODE', 'Код нодуруст ё муҳлаташ гузаштааст. Коди навро гиред.');
+      if (rec.tokenHash !== codeHash(rec.userId, body.code)) {
+        // 5 кӯшиши нодуруст → код бекор мешавад (ҳимоя аз тахмин)
+        const attempts = rec.attempts + 1;
+        await prisma.passwordResetToken.update({
+          where: { id: rec.id },
+          data: { attempts, ...(attempts >= RESET_CODE_MAX_ATTEMPTS ? { usedAt: new Date() } : {}) },
+        });
+        throw badRequest('INVALID_CODE', attempts >= RESET_CODE_MAX_ATTEMPTS ? 'Код бекор шуд. Коди навро гиред.' : 'Код нодуруст аст');
+      }
+    } else {
+      rec = await prisma.passwordResetToken.findUnique({ where: { tokenHash: hashToken(body.token) } });
+      if (!rec || rec.usedAt || rec.expiresAt < new Date()) {
+        throw badRequest('INVALID_TOKEN', 'Линк нодуруст ё муҳлаташ гузаштааст');
+      }
     }
     const passwordHash = await hashPassword(body.password);
     await prisma.$transaction([

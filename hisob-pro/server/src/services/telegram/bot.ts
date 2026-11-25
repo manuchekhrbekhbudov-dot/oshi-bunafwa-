@@ -26,6 +26,7 @@ import { buildBackup } from '../backup.js';
 import { accountBalances } from '../ledger.js';
 import { detectImageMime, MAX_PHOTO_BYTES, purchasePhotos, savePhoto } from '../photos.js';
 import { attachPendingToChat, completeRegistrationFromContact } from '../registration.js';
+import { initialMarks, normalizeTime, routineDue } from '../routines.js';
 import {
   alertMessage,
   comparisonBlock,
@@ -89,6 +90,7 @@ export async function setupWebhook(publicUrl: string) {
       { command: 'debts', description: 'Қарзҳо / Долги' },
       { command: 'limit', description: 'Меъёри рӯзона / Дневная норма' },
       { command: 'daily', description: 'Ҳисоботи 21:00 / Отчёт в 21:00' },
+      { command: 'routine', description: 'Ҷадвали рӯз / Распорядок дня' },
       { command: 'help', description: 'Кӯмак / Помощь' },
     ],
   }).catch(() => undefined);
@@ -391,6 +393,91 @@ export async function sendBackups(now = new Date()) {
 }
 
 /** Ҳамаи корҳои ҷадвалӣ — бехатар аст, ки бисёр маротиба даъват шавад */
+/* ------------------------------ Ҷадвали рӯз ------------------------------ */
+
+/** Пас аз хабар, ҷавоби танҳо бо рақам ("25") то 3 соат ба ҳамин ҷой сабт мешавад */
+const PENDING_MS = 3 * 3600_000;
+
+/**
+ * Ҳар дақиқа: 5 дақиқа пеш аз соати баромадан — «ҳозир мебароед, лутфан пардохти хароҷотро сабт кунед».
+ * Ҳар ҷой дар рӯз танҳо як бор (идемпотент).
+ */
+export async function sendRoutineReminders(now = new Date()) {
+  const routines = await prisma.routine.findMany({
+    where: { active: true, user: { telegram: { isNot: null } } },
+    include: { category: { select: { name: true } }, user: { select: { language: true, telegram: true } } },
+  });
+  let sent = 0;
+  for (const r of routines) {
+    const link = r.user.telegram;
+    if (!link) continue;
+    const due = routineDue(r, now);
+    if (!due.leave) continue;
+    const claimed = await prisma.routine.updateMany({
+      where: { id: r.id, OR: [{ lastLeaveDay: null }, { lastLeaveDay: { not: due.day } }] },
+      data: { lastLeaveDay: due.day },
+    });
+    if (claimed.count !== 1) continue;
+    const lang: Lang = r.user.language === 'ru' ? 'ru' : 'tg';
+    const t = T[lang];
+    try {
+      const mins = Math.max(0, Math.min(r.remindBefore, minutesUntil(r.leaveTime, now)));
+      await send(link.chatId, t.routineLeave(r.title, r.leaveTime, mins, r.category?.name ?? null), {
+        reply_markup: { inline_keyboard: [[{ text: t.routineNoneBtn, callback_data: `rt:none:${r.id}` }]] },
+      });
+      await prisma.telegramLink.update({ where: { id: link.id }, data: { pendingRoutineId: r.id, pendingRoutineAt: now } });
+      sent++;
+    } catch (e) {
+      console.error('[telegram] routine reminder failed', e);
+      await prisma.routine.update({ where: { id: r.id }, data: { lastLeaveDay: r.lastLeaveDay } });
+    }
+  }
+  return { sent };
+}
+
+function minutesUntil(hhmm: string, now: Date) {
+  const cur = Number(formatInTimeZone(now, TZ, 'H')) * 60 + Number(formatInTimeZone(now, TZ, 'm'));
+  return Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5)) - cur;
+}
+
+function daysLabel(days: string, lang: Lang) {
+  if (days === '1234567') return T[lang].everyDay;
+  return days
+    .split('')
+    .map((d) => T[lang].weekdays[Number(d) - 1])
+    .join(', ');
+}
+
+export async function routinesMessage(userId: string, lang: Lang) {
+  const t = T[lang];
+  const list = await prisma.routine.findMany({ where: { userId }, include: { category: { select: { name: true } } }, orderBy: { leaveTime: 'asc' } });
+  if (!list.length) return t.routinesEmpty;
+  const lines = list.map(
+    (r) =>
+      `${r.active ? '•' : '⏸'} <b>${esc(r.title)}</b> — ${r.arriveTime ? `${r.arriveTime}–` : ''}${r.leaveTime} (${daysLabel(r.days, lang)})` +
+      (r.category ? ` · ${esc(r.category.name)}` : ''),
+  );
+  return [t.routinesTitle, '', ...lines, t.routinesHint].join('\n');
+}
+
+/** "/routine Иловагӣ 16:00-18:00" (даромадан − баромадан) ё "/routine Бозор 11:00" (танҳо баромадан) */
+async function addRoutineFromText(userId: string, input: string) {
+  const m = /^(.+?)\s+(\d{1,2}[:.]\d{2})(?:\s*[-–—]\s*(\d{1,2}[:.]\d{2}))?\s*$/.exec(input.trim());
+  if (!m) return null;
+  const arriveTime = m[3] ? normalizeTime(m[2]) : null;
+  const leaveTime = normalizeTime(m[3] ?? m[2]);
+  if (!leaveTime || (m[3] && (!arriveTime || arriveTime >= leaveTime))) return null;
+  const title = m[1].trim().slice(0, 60);
+  const categories = await prisma.category.findMany({ where: { userId, kind: 'EXPENSE' }, orderBy: { createdAt: 'asc' } });
+  const category = matchCategory(title, categories);
+  const base = { arriveTime, leaveTime, remindBefore: 5 };
+  const r = await prisma.routine.create({
+    data: { userId, title, categoryId: category?.id ?? null, ...base, ...initialMarks(base, new Date()) },
+  });
+  await prisma.user.update({ where: { id: userId }, data: { routinesAskedAt: new Date() } });
+  return r;
+}
+
 export async function runScheduledJobs(now = new Date()) {
   const safe = async <R>(name: string, fn: () => Promise<R>) => {
     try {
@@ -401,6 +488,7 @@ export async function runScheduledJobs(now = new Date()) {
     }
   };
   return {
+    routines: await safe('routines', () => sendRoutineReminders(now)),
     reminders: await safe('reminders', () => sendDebtReminders(now)),
     monthly: await safe('monthly', () => sendMonthlyReports(now)),
     daily: await safe('daily', () => sendDailySummaries(now)),
@@ -478,6 +566,8 @@ async function finishOnboarding(chatId: string, userId: string, lang: Lang) {
   await prisma.telegramLink.update({ where: { userId }, data: { step: 'done' } });
   const d = await computeDay(userId, todayKey());
   await send(chatId, T[lang].done(d.limit ? `${money(d.limit.value)} смн` : null), { reply_markup: menuKeyboard(lang) });
+  // «Пулро бештар дар куҷо сарф мекунед?» — агар ҳоло ҷой набошад
+  if (!(await prisma.routine.count({ where: { userId } }))) await send(chatId, T[lang].routinesEmpty);
 }
 
 /** Баланси ҳамаи ҳисобҳо */
@@ -565,7 +655,19 @@ async function quickAdd(
     accounts[0];
   if (!account) return send(chatId, t.noAccount);
   const categories = await prisma.category.findMany({ where: { userId, kind: entry.type }, orderBy: { createdAt: 'asc' } });
-  const category = matchCategory(entry.text, categories);
+  let category = matchCategory(entry.text, categories);
+  // Ҷавоб ба хабари ҷадвал ("25") → ба ҳамон ҷой ва категорияи он
+  const link = await prisma.telegramLink.findUnique({ where: { userId } });
+  if (entry.type === 'EXPENSE' && link?.pendingRoutineId && link.pendingRoutineAt && Date.now() - link.pendingRoutineAt.getTime() < PENDING_MS) {
+    const routine = await prisma.routine.findFirst({ where: { id: link.pendingRoutineId, userId } });
+    if (routine) {
+      if (!entry.text) entry = { ...entry, text: routine.title };
+      category = category ?? categories.find((c) => c.id === routine.categoryId) ?? matchCategory(routine.title, categories);
+    }
+  }
+  if (link?.pendingRoutineId && entry.type === 'EXPENSE') {
+    await prisma.telegramLink.update({ where: { id: link.id }, data: { pendingRoutineId: null, pendingRoutineAt: null } });
+  }
   const tx = await prisma.transaction.create({
     data: {
       userId,
@@ -610,6 +712,9 @@ export async function handleUpdate(update: TgUpdate) {
       await send(chatId, T[lang].askIncome, { reply_markup: skipKeyboard(lang) });
     } else if (data === 'income:skip') {
       await finishOnboarding(chatId, link.userId, lang);
+    } else if (data.startsWith('rt:none:')) {
+      await prisma.telegramLink.update({ where: { id: link.id }, data: { pendingRoutineId: null, pendingRoutineAt: null } });
+      await send(chatId, T[lang].routineNoneOk);
     } else if (data.startsWith('undo:')) {
       // Танҳо амалиёти худи ҳамин корбар, ки аз Telegram сабт шудааст
       const del = await prisma.transaction.deleteMany({
@@ -771,6 +876,13 @@ export async function handleUpdate(update: TgUpdate) {
       const on = !link.notifyDaily;
       await prisma.telegramLink.update({ where: { id: link.id }, data: { notifyDaily: on } });
       return send(chatId, on ? t.dailyOn : t.dailyOff);
+    }
+    case 'routine':
+    case 'routines': {
+      if (!args.length) return send(chatId, await routinesMessage(link.userId, lang));
+      const r = await addRoutineFromText(link.userId, args.join(' '));
+      if (!r) return send(chatId, t.routineBad);
+      return send(chatId, t.routineAdded(r.title, r.arriveTime, r.leaveTime));
     }
     case 'stop':
       await prisma.telegramLink.delete({ where: { id: link.id } });

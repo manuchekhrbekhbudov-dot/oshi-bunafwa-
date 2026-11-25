@@ -214,7 +214,7 @@ describe.skipIf(!hasDb)('ҷадвали Telegram: ёдраскунӣ, ҳафта
 
   it('runScheduledJobs ва /tick', async () => {
     const r = await bot.runScheduledJobs(at('2026-11-24T12:00:00'));
-    expect(Object.keys(r).sort()).toEqual(['backups', 'daily', 'monthly', 'reminders', 'weekly']);
+    expect(Object.keys(r).sort()).toEqual(['backups', 'daily', 'monthly', 'reminders', 'routines', 'weekly']);
     await request(app).post('/api/telegram/tick').expect(200);
   });
 });

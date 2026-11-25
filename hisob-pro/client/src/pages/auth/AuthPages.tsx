@@ -318,49 +318,115 @@ export function RegisterPage() {
   );
 }
 
+/**
+ * Барқарорсозии парол бо код: 1) рақам/email → бот коди 6-рақама мефиристад;
+ * 2) код + пароли нав → парол иваз мешавад ва корбар худкор ворид мешавад.
+ */
 export function ForgotPasswordPage() {
   const { t } = useI18n();
+  const { login } = useAuth();
+  const navigate = useNavigate();
   const [loginId, setLoginId] = useState('');
-  const [sent, setSent] = useState(false);
+  const [step, setStep] = useState<'login' | 'code'>('login');
+  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [fields, setFields] = useState<Record<string, string>>({});
   const [err, setErr] = useState('');
+  const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
+
+  const requestCode = async (e?: FormEvent) => {
+    e?.preventDefault();
     setLoading(true);
     setErr('');
     try {
       await api.post('/auth/forgot-password', { login: loginId });
-      setSent(true);
+      setStep('code');
+      setCode('');
+      setInfo(t('resetSent'));
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : String(e));
     } finally {
       setLoading(false);
     }
   };
+
+  const resetWithCode = async (e: FormEvent) => {
+    e.preventDefault();
+    setErr('');
+    setFields({});
+    if (!/^\d{6}$/.test(code)) return setFields({ code: t('codeRule') });
+    if (password !== confirm) return setFields({ confirm: t('passwordsMismatch') });
+    setLoading(true);
+    try {
+      await api.post('/auth/reset-password', { login: loginId, code, password });
+      await login(loginId, password);
+      navigate('/', { replace: true });
+    } catch (e) {
+      if (e instanceof ApiError) {
+        setFields(e.fields);
+        if (!Object.keys(e.fields).length) setErr(e.message);
+      } else setErr(String(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <AuthLayout title={t('resetTitle')} subtitle={t('resetSubtitle')}>
-      {sent ? (
-        <div className="space-y-4">
-          <div className="flex gap-3 rounded-2xl bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-300">
-            <CheckCircle2 className="h-5 w-5 shrink-0" />
-            {t('resetSent')}
-          </div>
-          <Link to="/login" className="block text-center text-sm font-semibold text-brand-500">
-            {t('backToLogin')}
-          </Link>
-        </div>
-      ) : (
-        <form onSubmit={submit} className="space-y-4">
+    <AuthLayout title={t('resetTitle')} subtitle={step === 'login' ? t('resetSubtitle') : undefined}>
+      {step === 'login' ? (
+        <form onSubmit={requestCode} className="space-y-4">
           <FormError msg={err} />
           <Field label={t('loginId')}>
             <Input value={loginId} onChange={(e) => setLoginId(e.target.value)} leading={<UserIcon className="h-4 w-4" />} placeholder={t('loginIdPh')} autoCapitalize="none" required />
           </Field>
-          <Button type="submit" size="lg" className="w-full justify-center" loading={loading}>
-            {t('sendLink')}
+          <Button type="submit" size="lg" className="w-full justify-center" loading={loading} icon={<Send className="h-4 w-4" />}>
+            {t('sendCode')}
           </Button>
           <Link to="/login" className="block text-center text-sm font-semibold text-brand-500">
             {t('backToLogin')}
           </Link>
+        </form>
+      ) : (
+        <form onSubmit={resetWithCode} className="space-y-4" noValidate>
+          {info && (
+            <div className="flex gap-3 rounded-2xl bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-300">
+              <CheckCircle2 className="h-5 w-5 shrink-0" />
+              {info}
+            </div>
+          )}
+          <FormError msg={err} />
+          <Field label={t('codeLabel')} error={fields.code}>
+            <Input
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="000000"
+              maxLength={6}
+              invalid={!!fields.code}
+              className="h-14 text-center text-2xl font-bold tracking-[0.5em]"
+              aria-label={t('codeLabel')}
+            />
+          </Field>
+          <Field label={t('newPassword')} error={fields.password} hint={t('passwordRule')}>
+            <PasswordInput value={password} onChange={setPassword} invalid={!!fields.password} autoComplete="new-password" />
+          </Field>
+          <Field label={t('confirmPassword')} error={fields.confirm}>
+            <PasswordInput value={confirm} onChange={setConfirm} invalid={!!fields.confirm} autoComplete="new-password" />
+          </Field>
+          <Button type="submit" size="lg" className="w-full justify-center" loading={loading}>
+            {t('setPassword')}
+          </Button>
+          <div className="flex items-center justify-between text-sm font-semibold">
+            <button type="button" className="text-brand-500 disabled:opacity-50" disabled={loading} onClick={() => requestCode()}>
+              {t('resendCode')}
+            </button>
+            <Link to="/login" className="text-slate-500">
+              {t('backToLogin')}
+            </Link>
+          </div>
         </form>
       )}
     </AuthLayout>

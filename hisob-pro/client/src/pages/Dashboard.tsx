@@ -1,3 +1,4 @@
+import { RoutinesPrompt } from '../components/Routines';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
@@ -128,6 +129,7 @@ export default function DashboardPage() {
       </div>
 
       <InstallBanner />
+      <RoutinesPrompt />
       <MissingRatesNote currencies={missing} />
 
       {!d ? (

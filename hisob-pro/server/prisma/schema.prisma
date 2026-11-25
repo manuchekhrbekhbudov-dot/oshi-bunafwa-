@@ -82,6 +82,8 @@ model User {
   telegram      TelegramLink?
   telegramCodes TelegramLinkCode[]
   photos        TransactionPhoto[]
+  routines      Routine[]
+  routinesAskedAt DateTime? // саволи «пулро дар куҷо сарф мекунед?» пурсида шуд
 }
 
 model Session {
@@ -105,6 +107,7 @@ model PasswordResetToken {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   usedAt    DateTime?
+  attempts  Int       @default(0) // кӯшишҳои нодурусти код (5 → код бекор мешавад)
   createdAt DateTime  @default(now())
 
   @@index([userId])
@@ -144,6 +147,7 @@ model Category {
   createdAt DateTime     @default(now())
 
   transactions Transaction[]
+  routines     Routine[]
 
   @@unique([userId, kind, name])
   @@index([userId, kind])
@@ -274,6 +278,9 @@ model TelegramLink {
   lastWeeklyKey   String? // ҳисоботи ҳафтаина — душанбеи ҳафта
   lastMonthlyKey  String? // ҳисоботи моҳона — 'yyyy-MM'
   lastBackupDay   String? // нусхаи эҳтиётӣ
+  // Пас аз ёдраскунии ҷадвал: ҷавоби танҳо бо рақам ("25") ба ҳамин ҷой/категория сабт мешавад
+  pendingRoutineId String?
+  pendingRoutineAt DateTime?
   linkedAt      DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
@@ -333,4 +340,25 @@ model AppSetting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+/// Ҷадвали рӯз: ҷойҳое, ки корбар ҳар рӯз меравад (масалан «Иловагӣ»: даромадан 16:00, баромадан 18:00).
+/// Бот 5 дақиқа пеш аз баромадан хабар медиҳад: «лутфан пардохти хароҷотро сабт кунед».
+model Routine {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String
+  categoryId    String?
+  category      Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  days          String    @default("1234567") // рӯзҳои ҳафта: 1 = душанбе … 7 = якшанбе
+  arriveTime    String?   // соати даромадан 'HH:mm' (Asia/Dushanbe)
+  leaveTime     String    // соати баромадан — хабар N дақиқа пеш аз он
+  remindBefore  Int       @default(5) // дақиқа
+  active        Boolean   @default(true)
+  lastLeaveDay  String?   // 'yyyy-MM-dd' — хабари имрӯза фиристода шуд
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId])
 }

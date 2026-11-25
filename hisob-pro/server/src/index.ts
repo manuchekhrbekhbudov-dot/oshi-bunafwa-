@@ -1,7 +1,7 @@
 import { createApp } from './app.js';
 import { config } from './config.js';
 import { prisma } from './lib/prisma.js';
-import { runScheduledJobs, setupWebhook, telegramEnabled } from './services/telegram/bot.js';
+import { runScheduledJobs, sendRoutineReminders, setupWebhook, telegramEnabled } from './services/telegram/bot.js';
 
 const app = createApp();
 
@@ -17,6 +17,10 @@ if (telegramEnabled()) {
   setInterval(() => {
     runScheduledJobs().catch((e) => console.error('[telegram] tick', e));
   }, 5 * 60_000).unref();
+  // Ҷадвали рӯз: хабари «5 дақиқа баъд мебароед» — ҳар дақиқа санҷида мешавад
+  setInterval(() => {
+    sendRoutineReminders().catch((e) => console.error('[telegram] routines', e));
+  }, 60_000).unref();
 }
 
 // Render (нақшаи ройгон) серверро баъд аз 15 дақиқаи беамалӣ "хоб" мекунад → кушодани сайт ~1 дақиқа.

@@ -1,3 +1,4 @@
+import { RoutinesCard } from '../components/Routines';
 import { useEffect, useState, type FormEvent } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Coins, KeyRound, LogOut, Moon, Palette, Plus, Sun, Tags, Trash2, User as UserIcon, Pencil, Check, X, Send, ExternalLink, BellRing } from 'lucide-react';
@@ -427,7 +428,7 @@ export default function SettingsPage() {
   const location = useLocation();
   useEffect(() => {
     const id = location.hash.slice(1);
-    if (id === 'rates' || id === 'app') {
+    if (id === 'rates' || id === 'app' || id === 'routines') {
       setTimeout(() => document.getElementById(id)?.closest('.card')?.scrollIntoView({ behavior: 'smooth' }), 150);
     }
   }, [location.hash]);
@@ -452,6 +453,7 @@ export default function SettingsPage() {
           {user?.isOwner && <RegistrationCard />}
           <InstallCard />
           <TelegramCard />
+          <RoutinesCard />
           <RatesCard />
           <CategoriesCard />
         </div>

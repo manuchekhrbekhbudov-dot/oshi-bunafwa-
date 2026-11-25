@@ -364,16 +364,17 @@ describe.skipIf(!hasDb)('API (integration, PostgreSQL)', () => {
       await request(app).post('/api/auth/login').send({ email: 'ali@test.tj', password: 'navparol1' }).expect(200);
     });
 
-    it('фаромӯш кардани парол → линк → пароли нав', async () => {
+    it('фаромӯш кардани парол → коди 6-рақама (email) → пароли нав', async () => {
       const spy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
       await request(app).post('/api/auth/forgot-password').send({ email: 'ali@test.tj' }).expect(200);
       await request(app).post('/api/auth/forgot-password').send({ email: 'nobody@test.tj' }).expect(200);
       const out = spy.mock.calls.map((c) => String(c[0])).join('\n');
       spy.mockRestore();
-      const token = decodeURIComponent(out.match(/token=([^\s]+)/)![1]);
-      await request(app).post('/api/auth/reset-password').send({ token, password: 'reset12345' }).expect(200);
-      // токен як маротиба кор мекунад
-      await request(app).post('/api/auth/reset-password').send({ token, password: 'reset12345' }).expect(400);
+      const code = out.match(/барқарорсозии парол: (\d{6})/)![1];
+      const body = { login: 'ali@test.tj', code, password: 'reset12345' };
+      await request(app).post('/api/auth/reset-password').send(body).expect(200);
+      // код як маротиба кор мекунад
+      await request(app).post('/api/auth/reset-password').send(body).expect(400);
       // сессияҳои кӯҳна бекор шуданд
       await A.get('/api/auth/me').expect(401);
       await request(app).post('/api/auth/login').send({ email: 'ali@test.tj', password: 'reset12345' }).expect(200);

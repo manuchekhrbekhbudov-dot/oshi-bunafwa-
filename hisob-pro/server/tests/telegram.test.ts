@@ -82,7 +82,9 @@ describe.skipIf(!hasDb)('Telegram-бот (integration)', () => {
     await text('бисёр');
     expect(lastMsg()).toContain('танҳо рақам');
     await text('6000');
-    expect(lastMsg()).toContain('Тайёр');
+    // «Тайёр», баъд саволи ҷадвал: «пулро бештар дар куҷо сарф мекунед?»
+    expect(messages().at(-2)).toContain('Тайёр');
+    expect(lastMsg()).toContain('/routine Иловагӣ 16:00-18:00');
     const s = (await A.get('/api/telegram/settings')).body;
     expect(s.onboarding).toBe(false);
     expect(s.incomeSource).toBe('SALARY');
