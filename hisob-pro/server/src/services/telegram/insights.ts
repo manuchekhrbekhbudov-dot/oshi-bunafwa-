@@ -200,8 +200,9 @@ export const T = {
     goalAchieved: (title: string, target: string) => `🎉 <b>Табрик!</b> Мақсади «${esc(title)}» иҷро шуд — ${target} ҷамъ шуд! 👏`,
     goalsTitle: '🎯 <b>Мақсадҳои пасандоз</b>',
     goalsEmpty: '🎯 Ҳоло мақсад нест.\n\nДар сайт: <b>Нақшаҳо → Мақсади нав</b> (масалан «Телефон — 3000 смн»).',
-    goalLine: (title: string, saved: string, target: string, pct: number, perDay: string | null, perMonth?: string | null) =>
-      `• <b>${esc(title)}</b>: ${saved} / ${target} (${pct}%)${perMonth ? `\n   ҳар моҳ ≈ <b>${perMonth}</b> (ҳар рӯз ≈ ${perDay})` : perDay ? `\n   ҳар рӯз ≈ ${perDay} гузоред` : ''}`,
+    goalLine: (title: string, saved: string, target: string, pct: number, perDay: string | null, perMonth?: string | null, plan?: { monthly: string; months: number; eta: string } | null) =>
+      `• <b>${esc(title)}</b>: ${saved} / ${target} (${pct}%)` +
+      (plan ? `\n   ҳар моҳ ${plan.monthly} → <b>${plan.months} моҳ</b>, то ${plan.eta}` : perMonth ? `\n   ҳар моҳ ≈ <b>${perMonth}</b> (ҳар рӯз ≈ ${perDay})` : perDay ? `\n   ҳар рӯз ≈ ${perDay} гузоред` : ''),
     goalsHint: '\nИлова ба пасандоз: <code>/goal 200</code> (ба мақсади аввал) ё <code>/goal 200 Телефон</code>',
     goalAdded: (title: string, amount: string, saved: string, target: string, pct: number) =>
       `✅ Ба «${esc(title)}» ${amount} гузошта шуд.\n🎯 Ҷамъ: <b>${saved}</b> / ${target} (${pct}%)`,
@@ -343,8 +344,9 @@ export const T = {
     goalAchieved: (title: string, target: string) => `🎉 <b>Поздравляем!</b> Цель «${esc(title)}» достигнута — накоплено ${target}! 👏`,
     goalsTitle: '🎯 <b>Цели накоплений</b>',
     goalsEmpty: '🎯 Целей пока нет.\n\nНа сайте: <b>Планы → Новая цель</b> (например «Телефон — 3000 смн»).',
-    goalLine: (title: string, saved: string, target: string, pct: number, perDay: string | null, perMonth?: string | null) =>
-      `• <b>${esc(title)}</b>: ${saved} / ${target} (${pct}%)${perMonth ? `\n   в месяц ≈ <b>${perMonth}</b> (в день ≈ ${perDay})` : perDay ? `\n   откладывайте ≈ ${perDay} в день` : ''}`,
+    goalLine: (title: string, saved: string, target: string, pct: number, perDay: string | null, perMonth?: string | null, plan?: { monthly: string; months: number; eta: string } | null) =>
+      `• <b>${esc(title)}</b>: ${saved} / ${target} (${pct}%)` +
+      (plan ? `\n   ${plan.monthly} в месяц → <b>${plan.months} мес.</b>, к ${plan.eta}` : perMonth ? `\n   в месяц ≈ <b>${perMonth}</b> (в день ≈ ${perDay})` : perDay ? `\n   откладывайте ≈ ${perDay} в день` : ''),
     goalsHint: '\nПополнить: <code>/goal 200</code> (первая цель) или <code>/goal 200 Телефон</code>',
     goalAdded: (title: string, amount: string, saved: string, target: string, pct: number) =>
       `✅ В «${esc(title)}» отложено ${amount}.\n🎯 Накоплено: <b>${saved}</b> / ${target} (${pct}%)`,

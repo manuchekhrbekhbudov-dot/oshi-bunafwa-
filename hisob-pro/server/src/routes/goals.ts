@@ -20,6 +20,7 @@ function serialize(g: GoalWithC) {
     id: g.id,
     title: g.title,
     target: g.target.toFixed(2),
+    monthlyPlan: g.monthly ? g.monthly.toFixed(2) : null,
     currency: g.currency,
     // санаи охир ҳамчун 'yyyy-MM-dd' (Душанбе)
     deadline: g.deadline ? new Date(g.deadline.getTime() - 1).toISOString().slice(0, 10) : null,
@@ -41,6 +42,8 @@ const body = z.object({
     .refine((d) => !d || d >= todayKey(), 'Санаи ояндаро интихоб кунед (на гузашта)')
     .transform((d) => (d ? endOfDayExclusiveTz(d) : d)),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  // «Ҳар моҳ чанд ҷамъ карда метавонам» (ихтиёрӣ)
+  monthly: amountSchema.nullable().optional(),
 });
 
 router.get(
@@ -57,7 +60,7 @@ router.post(
     const userId = uid(req);
     const data = parse(body, req.body);
     if ((await prisma.goal.count({ where: { userId } })) >= 50) throw badRequest('TOO_MANY', 'Ҳадди аксар 50 мақсад');
-    const g = await prisma.goal.create({ data: { ...data, deadline: data.deadline ?? null, userId }, include });
+    const g = await prisma.goal.create({ data: { ...data, deadline: data.deadline ?? null, monthly: data.monthly ?? null, userId }, include });
     res.status(201).json({ goal: serialize(g) });
   }),
 );

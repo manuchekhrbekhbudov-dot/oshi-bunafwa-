@@ -7,7 +7,7 @@ import { dec, money, sum } from '../lib/money.js';
 
 /* ------------------------------ Мақсадҳо ------------------------------ */
 
-export function goalStats(g: Pick<Goal, 'target' | 'deadline'>, contributions: Pick<GoalContribution, 'amount'>[], today = todayKey()) {
+export function goalStats(g: Pick<Goal, 'target' | 'deadline'> & { monthly?: Goal['monthly'] }, contributions: Pick<GoalContribution, 'amount'>[], today = todayKey()) {
   const saved = sum(contributions.map((c) => c.amount));
   const target = dec(g.target);
   const remaining = target.minus(saved);
@@ -25,15 +25,39 @@ export function goalStats(g: Pick<Goal, 'target' | 'deadline'>, contributions: P
       perMonth = money(remaining.div(Math.max(1, daysLeft / 30.4375)).toDecimalPlaces(2, 0));
     }
   }
+  // Корбар худаш: «ҳар моҳ X ҷамъ карда метавонам» → чанд моҳ лозим ва санаи тахминӣ
+  const monthly = g.monthly && dec(g.monthly).gt(0) ? dec(g.monthly) : null;
+  let monthsNeeded: number | null = null;
+  let etaDate: string | null = null;
+  if (monthly && remaining.gt(0)) {
+    monthsNeeded = remaining.div(monthly).ceil().toNumber();
+    etaDate = addMonths(today, monthsNeeded);
+  }
+  // Бо маблағи интихобшуда то санаи мақсад намерасад
+  const lateForDeadline = !!(etaDate && g.deadline && etaDate > todayKey(new Date(g.deadline.getTime() - 1)));
   return {
     saved: money(saved),
     remaining: money(remaining.lt(0) ? 0 : remaining),
+    monthly: monthly ? money(monthly) : null,
+    monthsNeeded,
+    etaDate,
+    lateForDeadline,
     progress,
     achieved: saved.gte(target),
     daysLeft,
     perDay,
     perMonth,
   };
+}
+
+/** '2026-11-30' + 3 моҳ → '2027-02-28' */
+export function addMonths(day: string, n: number): string {
+  const [y, m, d] = day.split('-').map(Number);
+  const total = y * 12 + (m - 1) + n;
+  const ny = Math.floor(total / 12);
+  const nm = (total % 12) + 1;
+  const last = new Date(Date.UTC(ny, nm, 0)).getUTCDate();
+  return `${ny}-${String(nm).padStart(2, '0')}-${String(Math.min(d, last)).padStart(2, '0')}`;
 }
 
 /* ------------------------------ Пардохтҳои доимӣ ------------------------------ */

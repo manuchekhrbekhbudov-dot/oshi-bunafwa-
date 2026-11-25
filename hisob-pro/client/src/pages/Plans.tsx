@@ -31,6 +31,11 @@ export interface Goal {
   daysLeft: number | null;
   perDay: string | null;
   perMonth: string | null;
+  monthlyPlan: string | null;
+  monthly: string | null;
+  monthsNeeded: number | null;
+  etaDate: string | null;
+  lateForDeadline: boolean;
   contributions: { id: string; amount: string; note: string | null; createdAt: string }[];
 }
 
@@ -71,6 +76,7 @@ function GoalFormModal({ open, onClose, initial }: { open: boolean; onClose: () 
   const [target, setTarget] = useState('');
   const [currency, setCurrency] = useState<Currency>('TJS');
   const [deadline, setDeadline] = useState('');
+  const [monthly, setMonthly] = useState('');
   const [fields, setFields] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -80,13 +86,14 @@ function GoalFormModal({ open, onClose, initial }: { open: boolean; onClose: () 
     setTarget(initial ? String(Number(initial.target)) : '');
     setCurrency(initial?.currency ?? 'TJS');
     setDeadline(initial?.deadline ?? '');
+    setMonthly(initial?.monthlyPlan ? String(Number(initial.monthlyPlan)) : '');
   }, [open, initial]);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setFields({});
     try {
-      const body = { title: title.trim(), target: target.replace(',', '.').replace(/\s/g, ''), currency, deadline: deadline || null };
+      const body = { title: title.trim(), target: target.replace(',', '.').replace(/\s/g, ''), currency, deadline: deadline || null, monthly: monthly.trim() ? monthly.replace(',', '.').replace(/\s/g, '') : null };
       if (initial) await api.patch(`/goals/${initial.id}`, body);
       else await api.post('/goals', body);
       await qc.invalidateQueries({ queryKey: ['goals'] });
@@ -125,6 +132,9 @@ function GoalFormModal({ open, onClose, initial }: { open: boolean; onClose: () 
               <option value="RUB">RUB</option>
             </Select>
           </div>
+        </Field>
+        <Field label={t('goalMonthly')} error={fields.monthly} hint={t('goalMonthlyHint')} className="col-span-2">
+          <Input inputMode="decimal" value={monthly} onChange={(e) => setMonthly(e.target.value)} placeholder="1500" trailing={currency} invalid={!!fields.monthly} />
         </Field>
         <Field label={`${t('goalDeadline')} (${t('optional')})`} error={fields.deadline} className="col-span-2">
           <Input type="date" value={deadline} min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)} onChange={(e) => setDeadline(e.target.value)} invalid={!!fields.deadline} />
@@ -230,7 +240,19 @@ export function GoalProgress({ g, compact }: { g: Goal; compact?: boolean }) {
       <p className="num mt-1 text-xs text-slate-500">
         {formatMoney(g.saved, g.currency)} / {formatMoney(g.target, g.currency)}
       </p>
-      {!compact && !g.achieved && (
+      {!compact && !g.achieved && g.monthly && g.monthsNeeded && g.etaDate && (
+        // Корбар худаш интихоб кард: «ҳар моҳ X» → чанд моҳ ва кай
+        <p className="mt-2 rounded-xl bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
+          💰 {t('goalPlan', { v: formatMoney(g.monthly, g.currency), n: g.monthsNeeded })}
+          <span className="block text-xs opacity-80">{t('goalEta', { d: fullDate(g.etaDate) })}</span>
+          {g.lateForDeadline && g.perMonth && (
+            <span className="mt-1 block text-xs font-semibold text-amber-600 dark:text-amber-300">
+              {t('goalLate', { d: fullDate(g.deadline!), v: formatMoney(g.perMonth, g.currency) })}
+            </span>
+          )}
+        </p>
+      )}
+      {!compact && !g.achieved && !g.monthly && (
         g.deadline && g.daysLeft && g.perMonth ? (
           // Асосӣ: ҳар моҳ чанд гузоштан лозим
           <p className="mt-2 rounded-xl bg-brand-500/10 px-3 py-2 text-sm text-brand-700 dark:text-brand-200">

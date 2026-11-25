@@ -39,6 +39,11 @@ describe('нақшаҳо ва қурб (ҳисобкунии соф)', () => {
     // PlayStation: 6500 то 01.01.2027, имрӯз 25.11.2026 → 38 рӯз ≈ 1.25 моҳ
     const ps = goalStats({ target: '6500', deadline: fromZonedTime('2027-01-02T00:00', 'Asia/Dushanbe') } as never, [] as never, '2026-11-25');
     expect(ps).toMatchObject({ daysLeft: 38, perDay: '171.06', perMonth: '5206.42' });
+    // корбар: «ҳар моҳ 1500 метавонам» → 6500/1500 = 5 моҳ → 25.04.2027
+    const plan = goalStats({ target: '6500', deadline: null, monthly: '1500' } as never, [{ amount: '500' }] as never, '2026-11-25');
+    expect(plan).toMatchObject({ monthly: '1500.00', monthsNeeded: 4, etaDate: '2027-03-25', lateForDeadline: false });
+    const late = goalStats({ target: '6500', deadline: fromZonedTime('2027-01-02T00:00', 'Asia/Dushanbe'), monthly: '1500' } as never, [] as never, '2026-11-25');
+    expect(late).toMatchObject({ monthsNeeded: 5, etaDate: '2027-04-25', lateForDeadline: true });
     // мӯҳлат гузашт
     expect(goalStats({ target: '100', deadline: fromZonedTime('2026-01-02T00:00', 'Asia/Dushanbe') } as never, [] as never, '2026-11-25')).toMatchObject({ daysLeft: 0, perMonth: null });
     expect(goalStats({ target: '100', deadline: null } as never, [{ amount: '150' }] as never).achieved).toBe(true);

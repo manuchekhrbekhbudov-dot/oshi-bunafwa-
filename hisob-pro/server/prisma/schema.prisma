@@ -380,6 +380,7 @@ model Goal {
   target     Decimal   @db.Decimal(18, 2)
   currency   Currency  @default(TJS)
   deadline   DateTime? // санаи охир (ихтиёрӣ)
+  monthly    Decimal?  @db.Decimal(18, 2) // корбар худаш: «ҳар моҳ чанд ҷамъ карда метавонам»
   color      String    @default("#8b5cf6")
   achievedAt DateTime?
   createdAt  DateTime  @default(now())
