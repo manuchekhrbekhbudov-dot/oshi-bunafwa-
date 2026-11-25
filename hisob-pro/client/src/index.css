@@ -51,3 +51,14 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* iPhone (Safari): майдони сана ва вақт аз сутуни худ васеътар намешавад ва scroll-и паҳлуӣ намеорад */
+@supports (-webkit-touch-callout: none) {
+  input[type='date'],
+  input[type='time'],
+  input[type='datetime-local'] {
+    -webkit-appearance: none; appearance: none;
+    display: block; min-width: 0; max-width: 100%; text-align: left;
+  }
+}
+input::-webkit-date-and-time-value { text-align: left; }

@@ -91,7 +91,7 @@ export function TransferFormModal({ open, onClose, initial }: { open: boolean; o
         </>
       }
     >
-      <form id="tr-form" onSubmit={submit} className="space-y-4" noValidate>
+      <form id="tr-form" onSubmit={submit} className="space-y-3 sm:space-y-4" noValidate>
         <Field label={t('fromAccount')} error={errors.fromAccountId}>
           <Select value={fromId} onChange={(e) => setFromId(e.target.value)}>
             {active.map((a) => (
@@ -131,7 +131,7 @@ export function TransferFormModal({ open, onClose, initial }: { open: boolean; o
             {t('rateHint', { a: from.currency, r: rate, b: to.currency })}
           </p>
         )}
-        <Field label={t('dateTime')} hint="Asia/Dushanbe">
+        <Field label={t('dateTime')} hint="Asia/Dushanbe" hintDesktopOnly>
           <Input type="datetime-local" value={occurredAt} onChange={(e) => setOccurredAt(e.target.value)} />
         </Field>
         <Field label={`${t('note')} (${t('optional')})`}>

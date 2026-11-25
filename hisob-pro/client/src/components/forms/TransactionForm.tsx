@@ -8,7 +8,7 @@ import { useI18n } from '../../i18n';
 import { useAccounts, useCategories, useFinanceMutation } from '../../hooks/queries';
 import { api } from '../../lib/api';
 import { toLocalInput } from '../../lib/dates';
-import { CURRENCY_SYMBOL, normalizeAmount, validAmount } from '../../lib/format';
+import { normalizeAmount, validAmount } from '../../lib/format';
 import { compressImage, photoUrl } from '../../lib/image';
 import type { AccountType, Currency, PaymentMethod, Transaction } from '../../lib/types';
 import { useFormErrors } from './useForm';
@@ -94,6 +94,13 @@ export function TransactionFormModal({
     if (first) setPm(defaultPm(first.type));
   };
 
+  /** Ҳисоб иваз шуд → усули пардохт мувофиқи навъи ҳисоб (нақд → Нақд, корт → Корт, бонк → Бонк) */
+  const changeAccount = (id: string) => {
+    setAccountId(id);
+    const acc = active.find((a) => a.id === id);
+    if (acc) setPm(defaultPm(acc.type));
+  };
+
   useEffect(() => {
     if (open && !initial && !categoryId && cats.data?.length) setCategoryId(cats.data[0].id);
   }, [open, cats.data, categoryId, initial]);
@@ -173,35 +180,57 @@ export function TransactionFormModal({
         </>
       }
     >
-      <form id="tx-form" onSubmit={submit} className="grid grid-cols-1 gap-4 sm:grid-cols-2" noValidate>
-        <Field label={t('amount')} error={errors.amount} className="sm:col-span-2">
-          <Input
-            inputMode="decimal"
-            placeholder="0.00"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            invalid={!!errors.amount}
-            trailing={CURRENCY_SYMBOL[currency]}
-            className="h-14 text-2xl font-bold"
-            autoFocus
-          />
+      {/* Телефон: майдонҳо зич (ду-ду дар як қатор), «Усули пардохт» дар боло — бе scroll-и зиёд */}
+      <form id="tx-form" onSubmit={submit} className="grid grid-cols-2 gap-3 sm:gap-4" noValidate>
+        <Field label={t('amount')} error={errors.amount} className="col-span-2">
+          <div className="flex gap-2">
+            <Input
+              inputMode="decimal"
+              placeholder="0.00"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              invalid={!!errors.amount}
+              className="h-14 min-w-0 flex-1 text-2xl font-bold"
+              aria-label={t('amount')}
+            />
+            <Select
+              value={currency}
+              onChange={(e) => changeCurrency(e.target.value as Currency)}
+              disabled={!!initial}
+              className="h-14 w-[5.75rem] shrink-0 font-semibold sm:w-28"
+              aria-label={t('currency')}
+              title={t('currency')}
+            >
+              <option value="TJS">TJS</option>
+              <option value="USD">USD</option>
+              <option value="RUB">RUB</option>
+            </Select>
+          </div>
         </Field>
-        <Field label={t('currency')} error={errors.currency}>
-          <Select value={currency} onChange={(e) => changeCurrency(e.target.value as Currency)} disabled={!!initial}>
-            <option value="TJS">TJS — сомонӣ</option>
-            <option value="USD">USD — доллар</option>
-            <option value="RUB">RUB — рубл</option>
-          </Select>
-        </Field>
-        <Field label={t('account')} error={errors.accountId} hint={t('accountCurrencyHint')}>
-          <Select value={accountId} onChange={(e) => setAccountId(e.target.value)} invalid={!!errors.accountId}>
-            {!forCurrency.length && <option value="">—</option>}
-            {forCurrency.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name} ({a.currency})
-              </option>
-            ))}
-          </Select>
+        <Field label={t('paymentMethod')} className="col-span-2">
+          <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={t('paymentMethod')}>
+            {(['CASH', 'CARD', 'BANK'] as const).map((m) => {
+              const Icon = PM_ICON[m];
+              return (
+                <button
+                  type="button"
+                  key={m}
+                  role="radio"
+                  aria-checked={pm === m}
+                  onClick={() => setPm(m)}
+                  className={clsx(
+                    'flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl border px-1 text-sm font-semibold transition',
+                    pm === m
+                      ? 'border-brand-500 bg-brand-500/10 text-brand-600 dark:text-brand-300'
+                      : 'border-slate-200 text-slate-500 hover:border-slate-300 dark:border-white/10',
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="truncate">{t(`pm_${m}`)}</span>
+                </button>
+              );
+            })}
+          </div>
         </Field>
         <Field label={t('category')} error={errors.categoryId}>
           <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
@@ -213,39 +242,32 @@ export function TransactionFormModal({
             ))}
           </Select>
         </Field>
-        <Field label={t('dateTime')} error={errors.occurredAt} hint="Asia/Dushanbe">
-          <Input type="datetime-local" value={occurredAt} onChange={(e) => setOccurredAt(e.target.value)} invalid={!!errors.occurredAt} />
+        <Field label={t('account')} error={errors.accountId} hint={t('accountCurrencyHint')} hintDesktopOnly>
+          <Select value={accountId} onChange={(e) => changeAccount(e.target.value)} invalid={!!errors.accountId}>
+            {!forCurrency.length && <option value="">—</option>}
+            {forCurrency.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </Select>
         </Field>
-        <Field label={isIncome ? t('source') : t('purpose')} error={errors.source || errors.purpose} className="sm:col-span-2">
+        <Field label={isIncome ? t('source') : t('purpose')} error={errors.source || errors.purpose} className="col-span-2 sm:col-span-1">
           <Input value={text} onChange={(e) => setText(e.target.value)} maxLength={200} />
         </Field>
-        <Field label={t('paymentMethod')} className="sm:col-span-2">
-          <div className="grid grid-cols-3 gap-2">
-            {(['CASH', 'CARD', 'BANK'] as const).map((m) => {
-              const Icon = PM_ICON[m];
-              return (
-                <button
-                  type="button"
-                  key={m}
-                  onClick={() => setPm(m)}
-                  className={clsx(
-                    'flex h-11 items-center justify-center gap-2 rounded-xl border text-sm font-semibold transition',
-                    pm === m
-                      ? 'border-brand-500 bg-brand-500/10 text-brand-600 dark:text-brand-300'
-                      : 'border-slate-200 text-slate-500 hover:border-slate-300 dark:border-white/10',
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  {t(`pm_${m}`)}
-                </button>
-              );
-            })}
-          </div>
+        <Field label={t('dateTime')} error={errors.occurredAt} hint="Asia/Dushanbe" hintDesktopOnly className="col-span-2 sm:col-span-1">
+          <Input type="datetime-local" value={occurredAt} onChange={(e) => setOccurredAt(e.target.value)} invalid={!!errors.occurredAt} />
         </Field>
-        <Field label={`${t('note')} (${t('optional')})`} error={errors.note} className="sm:col-span-2">
-          <Textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} rows={2} />
+        <Field label={`${t('note')} (${t('optional')})`} error={errors.note} className="col-span-2">
+          <Textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            maxLength={1000}
+            rows={1}
+            className="max-h-40 min-h-[44px] resize-none [field-sizing:content] sm:min-h-[64px]"
+          />
         </Field>
-        <Field label={t('photo')} hint={t('photoHint')} className="sm:col-span-2">
+        <Field label={t('photo')} hint={t('photoHint')} hintDesktopOnly className="col-span-2">
           {preview ? (
             <div className="relative inline-block">
               <img src={preview} alt={t('photo')} className="h-32 max-w-full rounded-xl border border-slate-200 object-cover dark:border-white/10" />
@@ -265,7 +287,7 @@ export function TransactionFormModal({
           ) : (
             <label
               className={clsx(
-                'flex h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 text-sm font-semibold text-slate-500 transition hover:border-brand-500 hover:text-brand-500 dark:border-white/15',
+                'flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 text-sm font-semibold text-slate-500 transition hover:border-brand-500 hover:text-brand-500 dark:border-white/15',
                 photoBusy && 'pointer-events-none opacity-60',
               )}
             >

@@ -7,12 +7,15 @@ export function Field({
   hint,
   children,
   className,
+  hintDesktopOnly,
 }: {
   label?: ReactNode;
   error?: string;
   hint?: ReactNode;
   children: ReactNode;
   className?: string;
+  /** Маслиҳат танҳо дар экрани калон (дар телефон ҷой намегирад) */
+  hintDesktopOnly?: boolean;
 }) {
   return (
     <div className={className}>
@@ -21,7 +24,7 @@ export function Field({
       {error ? (
         <p className="mt-1 text-xs font-medium text-rose-500">{error}</p>
       ) : hint ? (
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{hint}</p>
+        <p className={clsx('mt-1 text-xs text-slate-500 dark:text-slate-400', hintDesktopOnly && 'hidden sm:block')}>{hint}</p>
       ) : null}
     </div>
   );

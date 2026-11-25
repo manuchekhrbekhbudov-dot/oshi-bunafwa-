@@ -95,15 +95,15 @@ export function DebtFormModal({ open, onClose, initial }: { open: boolean; onClo
         </>
       }
     >
-      <form id="debt-form" onSubmit={submit} className="grid grid-cols-1 gap-4 sm:grid-cols-2" noValidate>
-        <div className="grid grid-cols-2 gap-2 sm:col-span-2">
+      <form id="debt-form" onSubmit={submit} className="grid grid-cols-2 gap-3 sm:gap-4" noValidate>
+        <div className="col-span-2 grid grid-cols-2 gap-2">
           {(['LENT', 'BORROWED'] as const).map((d) => (
             <button
               type="button"
               key={d}
               onClick={() => setDirection(d)}
               className={clsx(
-                'rounded-xl border px-3 py-3 text-sm font-semibold transition',
+                'rounded-xl border px-3 py-2.5 text-sm font-semibold transition',
                 direction === d
                   ? d === 'LENT'
                     ? 'border-amber-500 bg-amber-500/10 text-amber-600 dark:text-amber-400'
@@ -121,17 +121,17 @@ export function DebtFormModal({ open, onClose, initial }: { open: boolean; onClo
         <Field label={`${t('phone')} (${t('optional')})`}>
           <Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={40} placeholder="+992" />
         </Field>
-        <Field label={t('amount')} error={errors.amount}>
-          <Input inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} invalid={!!errors.amount} trailing={CURRENCY_SYMBOL[currency]} />
+        <Field label={t('amount')} error={errors.amount} className="col-span-2">
+          <div className="flex gap-2">
+            <Input inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} invalid={!!errors.amount} className="min-w-0 flex-1" aria-label={t('amount')} />
+            <Select value={currency} onChange={(e) => changeCurrency(e.target.value as Currency)} className="w-[5.75rem] shrink-0 font-semibold sm:w-28" aria-label={t('currency')} title={t('currency')}>
+              <option value="TJS">TJS</option>
+              <option value="USD">USD</option>
+              <option value="RUB">RUB</option>
+            </Select>
+          </div>
         </Field>
-        <Field label={t('currency')} error={errors.currency}>
-          <Select value={currency} onChange={(e) => changeCurrency(e.target.value as Currency)}>
-            <option value="TJS">TJS</option>
-            <option value="USD">USD</option>
-            <option value="RUB">RUB</option>
-          </Select>
-        </Field>
-        <Field label={t('account')} error={errors.accountId} hint={t('debtAccountHint')} className="sm:col-span-2">
+        <Field label={t('account')} error={errors.accountId} hint={t('debtAccountHint')} hintDesktopOnly className="col-span-2">
           <Select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
             <option value="">{t('noAccountMove')}</option>
             {forCurrency.map((a) => (
@@ -141,16 +141,16 @@ export function DebtFormModal({ open, onClose, initial }: { open: boolean; onClo
             ))}
           </Select>
         </Field>
-        <Field label={t('issuedAt')} error={errors.issuedAt}>
+        <Field label={t('issuedAt')} error={errors.issuedAt} className="col-span-2 sm:col-span-1">
           <Input type="datetime-local" value={issuedAt} onChange={(e) => setIssuedAt(e.target.value)} />
         </Field>
-        <Field label={`${t('dueDate')} (${t('optional')})`} error={errors.dueDate}>
+        <Field label={`${t('dueDate')} (${t('optional')})`} error={errors.dueDate} className="col-span-2 sm:col-span-1">
           <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
         </Field>
-        <Field label={`${t('note')} (${t('optional')})`} className="sm:col-span-2">
-          <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} />
+        <Field label={`${t('note')} (${t('optional')})`} className="col-span-2">
+          <Textarea rows={1} value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} className="max-h-40 min-h-[44px] resize-none [field-sizing:content] sm:min-h-[64px]" />
         </Field>
-        <p className="flex items-start gap-2 text-xs text-slate-500 sm:col-span-2">
+        <p className="col-span-2 flex items-start gap-2 text-xs text-slate-500">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           {t('debtNote')}
         </p>
@@ -214,16 +214,18 @@ export function PaymentFormModal({ open, onClose, debt }: { open: boolean; onClo
         </>
       }
     >
-      <form id="pay-form" onSubmit={submit} className="space-y-4" noValidate>
+      <form id="pay-form" onSubmit={submit} className="space-y-3 sm:space-y-4" noValidate>
         <Field label={t('amount')} error={errors.amount}>
           <div className="flex gap-2">
-            <Input inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} invalid={!!errors.amount} trailing={CURRENCY_SYMBOL[debt.currency]} />
-            <Button type="button" variant="secondary" onClick={() => setAmount(debt.remaining)}>
+            <div className="min-w-0 flex-1">
+              <Input inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} invalid={!!errors.amount} trailing={CURRENCY_SYMBOL[debt.currency]} />
+            </div>
+            <Button type="button" variant="secondary" className="shrink-0" onClick={() => setAmount(debt.remaining)}>
               {t('payFull')}
             </Button>
           </div>
         </Field>
-        <Field label={t('account')} error={errors.accountId} hint={t('debtAccountHint')}>
+        <Field label={t('account')} error={errors.accountId} hint={t('debtAccountHint')} hintDesktopOnly>
           <Select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
             <option value="">{t('noAccountMove')}</option>
             {options.map((a) => (
