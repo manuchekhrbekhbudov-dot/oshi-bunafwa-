@@ -26,7 +26,7 @@ export function useInvalidateFinance() {
   const qc = useQueryClient();
   return () =>
     Promise.all(
-      ['dashboard', 'accounts', 'transactions', 'reports', 'debts', 'transfers'].map((k) =>
+      ['dashboard', 'accounts', 'transactions', 'reports', 'debts', 'transfers', 'budgets', 'advice', 'recurring'].map((k) =>
         qc.invalidateQueries({ queryKey: [k] }),
       ),
     );

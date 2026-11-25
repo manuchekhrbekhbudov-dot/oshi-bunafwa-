@@ -7,6 +7,7 @@ import { amountSchema, currencySchema } from '../lib/validators.js';
 import { recurringStatus } from '../services/plans.js';
 import { payRecurring, skipRecurring } from '../services/planActions.js';
 import { serializeTx, txInclude } from '../services/serialize.js';
+import { checkSpendingAlert } from '../services/telegram/bot.js';
 
 const router = Router();
 const include = { account: { select: { name: true } }, category: { select: { name: true } } };
@@ -105,6 +106,7 @@ router.post(
     const userId = uid(req);
     const opts = parse(z.object({ accountId: z.string().min(1).nullable().optional(), amount: amountSchema.nullable().optional() }), req.body ?? {});
     const r = await payRecurring(userId, req.params.id, opts);
+    if (r.tx.type === 'EXPENSE') checkSpendingAlert(userId).catch(() => undefined);
     const tx = await prisma.transaction.findUniqueOrThrow({ where: { id: r.tx.id }, include: txInclude });
     const fresh = await prisma.recurringPayment.findFirstOrThrow({ where: { id: r.recurring.id }, include });
     res.status(201).json({ transaction: serializeTx(tx), recurring: serialize(fresh) });

@@ -30,6 +30,7 @@ import { initialMarks, normalizeTime, routineDue } from '../routines.js';
 import { issueResetCode, RESET_CODE_TTL_MIN } from '../passwordReset.js';
 import { goalStats, recurringReminderDue } from '../plans.js';
 import { contributeToGoal, payRecurring, skipRecurring } from '../planActions.js';
+import { budgetStatus, monthAdvice } from '../budgets.js';
 import { normalizePhone } from '../registration.js';
 import {
   alertMessage,
@@ -51,6 +52,8 @@ import {
   monthMessage,
   parseUserAmount,
   T,
+  adviceBlock,
+  monthName,
   type IncomeSource,
   type Lang,
 } from './insights.js';
@@ -97,6 +100,8 @@ export async function setupWebhook(publicUrl: string) {
       { command: 'routine', description: 'Ҷадвали рӯз / Распорядок дня' },
       { command: 'code', description: 'Коди пароли нав / Код для пароля' },
       { command: 'goal', description: 'Мақсадҳои пасандоз / Цели накоплений' },
+      { command: 'budget', description: 'Буҷет / Бюджет' },
+      { command: 'advice', description: 'Маслиҳати моҳ / Совет' },
       { command: 'help', description: 'Кӯмак / Помощь' },
     ],
   }).catch(() => undefined);
@@ -180,8 +185,40 @@ async function userLang(userId: string): Promise<Lang> {
  * Пас аз ҳар хароҷот даъват мешавад. Агар хароҷоти имрӯз аз меъёр гузарад —
  * як бор дар рӯз огоҳӣ мефиристад. Хатогиҳо ҳеҷ гоҳ ба корбар таъсир намерасонанд.
  */
+/** Буҷети категорияҳо: 80% ва 100% — ҳар кадом як бор дар моҳ */
+export async function checkBudgetAlerts(userId: string, now = new Date()) {
+  if (!telegramEnabled()) return 0;
+  const link = await prisma.telegramLink.findUnique({ where: { userId } });
+  if (!link) return 0;
+  if (!(await prisma.budget.count({ where: { userId } }))) return 0;
+  const st = await budgetStatus(userId, now);
+  const lang = await userLang(userId);
+  const t = T[lang];
+  let sent = 0;
+  for (const b of st.budgets) {
+    const level = b.pct >= 100 ? 'alert100Key' : b.pct >= 80 ? 'alert80Key' : null;
+    if (!level) continue;
+    const claimed = await prisma.budget.updateMany({
+      where: { id: b.id, OR: [{ [level]: null }, { [level]: { not: st.month } }] },
+      // 100% → огоҳии 80% ҳам дигар лозим нест
+      data: level === 'alert100Key' ? { alert100Key: st.month, alert80Key: st.month } : { alert80Key: st.month },
+    });
+    if (claimed.count !== 1) continue;
+    const f = (v: string) => fmt(v, st.base);
+    await send(
+      link.chatId,
+      level === 'alert100Key'
+        ? t.budgetOver(b.name, f(b.spent), f(b.amount), b.pct)
+        : t.budgetWarn(b.name, f(b.spent), f(b.amount), b.pct, f(b.remaining), b.perDayLeft ? f(b.perDayLeft) : null),
+    );
+    sent++;
+  }
+  return sent;
+}
+
 export async function checkSpendingAlert(userId: string, now = new Date()) {
   if (!telegramEnabled()) return false;
+  await checkBudgetAlerts(userId, now).catch((e) => console.error('[telegram] budget alert', e));
   const link = await prisma.telegramLink.findUnique({ where: { userId } });
   if (!link || link.step !== 'done') return false;
   const day = todayKey(now);
@@ -357,7 +394,9 @@ export async function sendMonthlyReports(now = new Date()) {
     if (!(await claim(link.id, 'lastMonthlyKey', month))) continue;
     try {
       const d = await comparePeriods(link.userId, from, to);
-      await send(link.chatId, monthlyReportMessage(month, d, await userLang(link.userId)));
+      const lang = await userLang(link.userId);
+      const advice = await monthAdvice(link.userId, month, now);
+      await send(link.chatId, [monthlyReportMessage(month, d, lang), '', ...adviceBlock(advice, advice.base, lang)].join('\n'));
       sent++;
     } catch (e) {
       await release(link.id, 'lastMonthlyKey', link.lastMonthlyKey);
@@ -995,6 +1034,18 @@ export async function handleUpdate(update: TgUpdate) {
       await send(chatId, t.resetBotCode(code, RESET_CODE_TTL_MIN, logins));
       if (!u.phone) await send(chatId, t.askPhone, { reply_markup: phoneKeyboard(lang) });
       return;
+    }
+    case 'budget':
+    case 'budgets': {
+      const st = await budgetStatus(link.userId);
+      if (!st.budgets.length) return send(chatId, t.budgetsEmpty);
+      const f = (v: string) => fmt(v, st.base);
+      return send(chatId, [t.budgetsTitle, '', ...st.budgets.map((b) => t.budgetLine(b.name, f(b.spent), f(b.amount), b.pct))].join('\n'));
+    }
+    case 'advice': {
+      const a = await monthAdvice(link.userId);
+      const head = `🗓 ${monthName(a.month, lang)}${a.partial ? ' (…)' : ''}: 💰 ${fmt(a.income, a.base)} · 💸 ${fmt(a.expense, a.base)}`;
+      return send(chatId, [head, '', ...adviceBlock(a, a.base, lang)].join('\n'));
     }
     case 'goal':
     case 'goals':

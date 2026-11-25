@@ -88,6 +88,7 @@ model User {
   goals         Goal[]
   goalContributions GoalContribution[]
   recurring     RecurringPayment[]
+  budgets       Budget[]
 }
 
 model Session {
@@ -154,6 +155,7 @@ model Category {
   transactions Transaction[]
   routines     Routine[]
   recurring    RecurringPayment[]
+  budget       Budget?
 
   @@unique([userId, kind, name])
   @@index([userId, kind])
@@ -425,6 +427,23 @@ model RecurringPayment {
   lastSkipKey   String?       // 'yyyy-MM' — ин моҳ гузаронида шуд
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+
+  @@index([userId])
+}
+
+/// Буҷети моҳона барои категорияи хароҷот (дар асъори асосии корбар).
+/// Дар 80% ва 100% бот як бор дар моҳ огоҳ мекунад.
+model Budget {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId String   @unique
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  amount     Decimal  @db.Decimal(18, 2)
+  alert80Key  String? // 'yyyy-MM' — огоҳии 80% фиристода шуд
+  alert100Key String? // 'yyyy-MM' — огоҳии 100% фиристода шуд
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@index([userId])
 }

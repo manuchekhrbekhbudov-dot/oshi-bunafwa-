@@ -4,6 +4,7 @@
 import { dec, Decimal, money, type CurrencyCode, type DecimalLike } from '../../lib/money.js';
 import type { CategoryChange, CategoryShare, Summary } from '../calc.js';
 import { pctChange } from '../calc.js';
+import type { AdviceTip, Grade } from '../budgets.js';
 
 export type Lang = 'tg' | 'ru';
 export type LimitBasis = 'manual' | 'income' | 'average';
@@ -216,6 +217,26 @@ export const T = {
     recurringPaid: (title: string, amount: string, account: string) => `✅ «${esc(title)}» — ${amount} сабт шуд (${esc(account)}).`,
     recurringSkipped: (title: string) => `⏭ «${esc(title)}» ин моҳ гузаронида шуд.`,
     recurringAlready: 'ℹ️ Ин моҳ аллакай сабт шудааст.',
+    budgetWarn: (name: string, spent: string, amount: string, pct: number, left: string, perDay: string | null) =>
+      `🟡 <b>Буҷети «${esc(name)}»: ${pct}% сарф шуд</b>\n${spent} аз ${amount}. Монд: <b>${left}</b>${perDay ? ` (≈ ${perDay} дар рӯз то охири моҳ)` : ''}.`,
+    budgetOver: (name: string, spent: string, amount: string, pct: number) =>
+      `🔴 <b>Буҷети «${esc(name)}» тамом шуд!</b>\n${spent} аз ${amount} (${pct}%). Кӯшиш кунед, ки то охири моҳ ба ин категория камтар сарф кунед.`,
+    budgetsTitle: '📊 <b>Буҷети ин моҳ</b>',
+    budgetsEmpty: '📊 Ҳоло буҷет нест.\n\nДар сайт: <b>Нақшаҳо → Буҷети моҳона</b> (масалан «Хӯрок — 1500 смн»).',
+    budgetLine: (name: string, spent: string, amount: string, pct: number) =>
+      `${pct >= 100 ? '🔴' : pct >= 80 ? '🟡' : '🟢'} ${esc(name)}: ${spent} / ${amount} (${pct}%)`,
+    adviceTitle: '🧭 <b>Маслиҳат</b>',
+    adviceGrade: (g: string, rate: number) =>
+      `Баҳои моҳ: <b>${g}</b> — ${rate >= 0 ? `${rate}% даромадро нигоҳ доштед` : `хароҷот ${Math.abs(rate)}% аз даромад зиёд буд`}`,
+    advTip: {
+      cut: (c: string, save: string) => `✂️ Агар ба «${esc(c)}» 10% камтар сарф кунед — ҳар моҳ <b>+${save}</b> пасандоз.`,
+      up: (c: string, pct: number) => `📈 Ба «${esc(c)}» ${pct}% бештар аз пештара сарф шуд — сабабашро бинед.`,
+      down: (c: string, pct: number) => `👏 Ба «${esc(c)}» ${pct}% камтар сарф кардед — офарин!`,
+      budgets: (kept: number, total: number) => `📊 Буҷетҳо: ${kept} аз ${total} риоя шуд.`,
+      negative: (gap: string) => `⚠️ Хароҷот аз даромад ${gap} зиёд шуд. Барои категорияҳои калон буҷет гузоред.`,
+      great: () => '🌟 Хеле хуб! Ҳамин тавр давом диҳед — қисми пасандозро ба мақсад гузоред.',
+      noIncome: () => 'ℹ️ Даромад сабт нашудааст — барои баҳои дақиқ даромадро ҳам сабт кунед.',
+    },
     undoFail: 'Ин амалиётро бекор кардан мумкин нест (шояд аллакай нест шудааст).',
     noAccount: 'Аввал дар сайт ҳисоб (ҳамён) созед: <b>Ҳамёнҳо ва ҳисобҳо</b>.',
     balanceTitle: '💰 <b>Баланс</b>',
@@ -360,6 +381,26 @@ export const T = {
     recurringPaid: (title: string, amount: string, account: string) => `✅ «${esc(title)}» — ${amount} записано (${esc(account)}).`,
     recurringSkipped: (title: string) => `⏭ «${esc(title)}» пропущено в этом месяце.`,
     recurringAlready: 'ℹ️ В этом месяце уже записано.',
+    budgetWarn: (name: string, spent: string, amount: string, pct: number, left: string, perDay: string | null) =>
+      `🟡 <b>Бюджет «${esc(name)}»: потрачено ${pct}%</b>\n${spent} из ${amount}. Осталось: <b>${left}</b>${perDay ? ` (≈ ${perDay} в день до конца месяца)` : ''}.`,
+    budgetOver: (name: string, spent: string, amount: string, pct: number) =>
+      `🔴 <b>Бюджет «${esc(name)}» исчерпан!</b>\n${spent} из ${amount} (${pct}%). Постарайтесь до конца месяца тратить на эту категорию меньше.`,
+    budgetsTitle: '📊 <b>Бюджет этого месяца</b>',
+    budgetsEmpty: '📊 Бюджетов пока нет.\n\nНа сайте: <b>Планы → Бюджет на месяц</b> (например «Еда — 1500 смн»).',
+    budgetLine: (name: string, spent: string, amount: string, pct: number) =>
+      `${pct >= 100 ? '🔴' : pct >= 80 ? '🟡' : '🟢'} ${esc(name)}: ${spent} / ${amount} (${pct}%)`,
+    adviceTitle: '🧭 <b>Совет</b>',
+    adviceGrade: (g: string, rate: number) =>
+      `Оценка месяца: <b>${g}</b> — ${rate >= 0 ? `сохранено ${rate}% дохода` : `расходы превысили доход на ${Math.abs(rate)}%`}`,
+    advTip: {
+      cut: (c: string, save: string) => `✂️ Если тратить на «${esc(c)}» на 10% меньше — <b>+${save}</b> накоплений в месяц.`,
+      up: (c: string, pct: number) => `📈 На «${esc(c)}» потрачено на ${pct}% больше прежнего — проверьте почему.`,
+      down: (c: string, pct: number) => `👏 На «${esc(c)}» потрачено на ${pct}% меньше — отлично!`,
+      budgets: (kept: number, total: number) => `📊 Бюджеты: соблюдено ${kept} из ${total}.`,
+      negative: (gap: string) => `⚠️ Расходы превысили доход на ${gap}. Задайте бюджет для крупных категорий.`,
+      great: () => '🌟 Отлично! Продолжайте — часть накоплений отложите на цель.',
+      noIncome: () => 'ℹ️ Доход не записан — для точной оценки записывайте и доходы.',
+    },
     undoFail: 'Эту операцию нельзя отменить (возможно, она уже удалена).',
     noAccount: 'Сначала создайте счёт на сайте: <b>Кошельки и счета</b>.',
     balanceTitle: '💰 <b>Баланс</b>',
@@ -376,10 +417,10 @@ export const T = {
 
 const HELP_TG =
   '✍️ <b>Сабт бо як паём:</b>\n<code>50 хӯрок</code> — хароҷот\n<code>-20 такси</code> — хароҷот\n<code>+3000 маош</code> — даромад\nКатегория худкор муайян мешавад.\n📸 Сурат бо навиштаи <code>50 нон</code> — харид бо сурат.\n\n' +
-  '<b>Фармонҳо:</b>\n/today — ҳисоботи имрӯз\n/month — ҳисоботи ҳамин моҳ\n/balance — баланси ҳисобҳо\n/debts — қарзҳо\n/limit — меъёри хароҷоти рӯзона\n/daily — ҳисоботи 21:00 фаъол/хомӯш\n/routine — ҷадвали рӯз (хабар 5 дақиқа пеш аз баромадан)\n/code — коди барқарорсозии парол\n/goal — мақсадҳои пасандоз\n/stop — ҷудо кардани бот';
+  '<b>Фармонҳо:</b>\n/today — ҳисоботи имрӯз\n/month — ҳисоботи ҳамин моҳ\n/balance — баланси ҳисобҳо\n/debts — қарзҳо\n/limit — меъёри хароҷоти рӯзона\n/daily — ҳисоботи 21:00 фаъол/хомӯш\n/routine — ҷадвали рӯз (хабар 5 дақиқа пеш аз баромадан)\n/code — коди барқарорсозии парол\n/goal — мақсадҳои пасандоз\n/budget — буҷети категорияҳо\n/advice — маслиҳат ва баҳои моҳ\n/stop — ҷудо кардани бот';
 const HELP_RU =
   '✍️ <b>Запись одним сообщением:</b>\n<code>50 еда</code> — расход\n<code>-20 такси</code> — расход\n<code>+3000 зарплата</code> — доход\nКатегория определяется автоматически.\n📸 Фото с подписью <code>50 хлеб</code> — покупка с фото.\n\n' +
-  '<b>Команды:</b>\n/today — отчёт за сегодня\n/month — отчёт за месяц\n/balance — баланс счетов\n/debts — долги\n/limit — дневная норма расходов\n/daily — вкл/выкл отчёт в 21:00\n/routine — распорядок дня (напоминание за 5 мин до ухода)\n/code — код восстановления пароля\n/goal — цели накоплений\n/stop — отключить бота';
+  '<b>Команды:</b>\n/today — отчёт за сегодня\n/month — отчёт за месяц\n/balance — баланс счетов\n/debts — долги\n/limit — дневная норма расходов\n/daily — вкл/выкл отчёт в 21:00\n/routine — распорядок дня (напоминание за 5 мин до ухода)\n/code — код восстановления пароля\n/goal — цели накоплений\n/budget — бюджет категорий\n/advice — совет и оценка месяца\n/stop — отключить бота';
 T.tg.help = HELP_TG;
 T.ru.help = HELP_RU;
 
@@ -643,4 +684,22 @@ export function reminderMessage(items: ReminderItem[], lang: Lang): string {
     else lines.push(lent ? t.overdueLent(i.name, i.amount, i.days ?? 1) : t.overdueBorrowed(i.name, i.amount, i.days ?? 1));
   }
   return lines.join('\n');
+}
+
+
+/** Блоки маслиҳат: баҳо (A–D) ва 2–4 маслиҳат */
+export function adviceBlock(a: { grade: Grade | null; savingsRate: number | null; tips: AdviceTip[] }, cur: CurrencyCode, lang: Lang): string[] {
+  const t = T[lang];
+  const lines = [t.adviceTitle];
+  if (a.grade && a.savingsRate !== null) lines.push(t.adviceGrade(a.grade, a.savingsRate));
+  for (const tip of a.tips.slice(0, 4)) {
+    if (tip.kind === 'cut') lines.push(t.advTip.cut(tip.category, fmt(tip.save, cur)));
+    else if (tip.kind === 'up') lines.push(t.advTip.up(tip.category, tip.pct));
+    else if (tip.kind === 'down') lines.push(t.advTip.down(tip.category, tip.pct));
+    else if (tip.kind === 'budgets') lines.push(t.advTip.budgets(tip.kept, tip.total));
+    else if (tip.kind === 'negative') lines.push(t.advTip.negative(fmt(tip.gap, cur)));
+    else if (tip.kind === 'great') lines.push(t.advTip.great());
+    else if (tip.kind === 'noIncome') lines.push(t.advTip.noIncome());
+  }
+  return lines;
 }

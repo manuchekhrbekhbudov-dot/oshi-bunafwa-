@@ -16,6 +16,7 @@ import { Field, Input, Select } from '../components/ui/Field';
 import { ConfirmDialog, Modal } from '../components/ui/Modal';
 import { useToast } from '../components/ui/Toast';
 import type { Currency } from '../lib/types';
+import { AdviceCard, BudgetsCard } from '../components/BudgetAdvice';
 
 export interface Goal {
   id: string;
@@ -575,8 +576,10 @@ export default function PlansPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={t('plansTitle')} subtitle={t('plansSubtitle')} />
+      <AdviceCard />
       <div className="grid gap-6 xl:grid-cols-2">
         <GoalsCard />
+        <BudgetsCard />
         <RecurringCard />
       </div>
     </div>
