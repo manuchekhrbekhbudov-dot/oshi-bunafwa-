@@ -17,7 +17,9 @@ export type DebtStatus = 'ACTIVE' | 'PARTIAL' | 'PAID' | 'OVERDUE';
 
 export interface User {
   id: string;
-  email: string;
+  email: string | null;
+  phone?: string | null;
+  isOwner?: boolean;
   name: string;
   language: Lang;
   baseCurrency: Currency;
@@ -62,6 +64,8 @@ export interface Transaction {
   debtId: string | null;
   debtPaymentId: string | null;
   debt: { id: string; counterparty: string; direction: DebtDirection } | null;
+  hasPhoto: boolean;
+  updatedAt: string;
 }
 
 export interface Paged<T> {
@@ -144,6 +148,16 @@ export interface DailyReport {
   accounts: (Account & { openingBalance: string })[];
 }
 
+export interface CategoryChange {
+  categoryId: string | null;
+  name: string;
+  color: string;
+  cur: string;
+  prev: string;
+  diff: string;
+  pct: number | null;
+}
+
 export interface PeriodReport {
   from: string;
   to: string;
@@ -154,6 +168,8 @@ export interface PeriodReport {
   series: SeriesPoint[];
   expenseByCategory: CategoryShare[];
   incomeByCategory: CategoryShare[];
+  previous: { from: string; to: string; summary: Summary };
+  changes: CategoryChange[];
 }
 
 export interface DebtPayment {

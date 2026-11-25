@@ -105,3 +105,22 @@ export function parseLocalDateTime(input: string, tz = TZ): Date | null {
 export function formatLocal(d: Date, pattern = 'yyyy-MM-dd HH:mm', tz = TZ): string {
   return formatInTimeZone(d, tz, pattern);
 }
+
+/**
+ * Давраи қаблӣ барои муқоиса:
+ *  - агар давра аз 1-уми моҳ сар шавад ва дар ҳамон моҳ тамом шавад → ҳамон рӯзҳои моҳи гузашта
+ *    (1–25 ноябр ↔ 1–25 октябр; тамоми ноябр ↔ тамоми октябр);
+ *  - вагарна → ҳамон шумораи рӯзҳо пеш аз давра.
+ */
+export function previousRange(from: string, to: string): { from: string; to: string } {
+  if (from.endsWith('-01') && from.slice(0, 7) === to.slice(0, 7)) {
+    const prevMonth = shiftMonth(from.slice(0, 7), -1);
+    const lastDay = daysBetween(`${prevMonth}-01`, shiftDay(`${from.slice(0, 7)}-01`, -1)).length;
+    const isWholeMonth = shiftDay(to, 1).endsWith('-01');
+    const day = isWholeMonth ? lastDay : Math.min(Number(to.slice(8, 10)), lastDay);
+    return { from: `${prevMonth}-01`, to: `${prevMonth}-${String(day).padStart(2, '0')}` };
+  }
+  const n = daysBetween(from, to).length;
+  const prevTo = shiftDay(from, -1);
+  return { from: shiftDay(prevTo, -(n - 1)), to: prevTo };
+}

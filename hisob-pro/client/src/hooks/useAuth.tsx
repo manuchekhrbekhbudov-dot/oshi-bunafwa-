@@ -10,7 +10,7 @@ interface AuthCtx {
   /** Сервер дастрас нест (интернет нест) — на "баромадан" */
   offline: boolean;
   retry: () => void;
-  login: (email: string, password: string) => Promise<void>;
+  login: (login: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   setUser: (u: User) => void;
@@ -64,8 +64,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void refetchMe();
   }, [refetchMe]);
 
-  const login = async (email: string, password: string) => {
-    const r = await api.post<{ user: User }>('/auth/login', { email, password });
+  const login = async (loginId: string, password: string) => {
+    const r = await api.post<{ user: User }>('/auth/login', { login: loginId, password });
     resetData();
     setUser(r.user);
   };

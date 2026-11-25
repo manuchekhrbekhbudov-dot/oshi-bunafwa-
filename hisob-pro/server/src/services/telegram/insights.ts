@@ -2,7 +2,8 @@
  * Telegram-бот: ҳисобкуниҳо ва матни паёмҳо (бе база ва бе шабака — пурра бо тест).
  */
 import { dec, Decimal, money, type CurrencyCode, type DecimalLike } from '../../lib/money.js';
-import type { CategoryShare, Summary } from '../calc.js';
+import type { CategoryChange, CategoryShare, Summary } from '../calc.js';
+import { pctChange } from '../calc.js';
 
 export type Lang = 'tg' | 'ru';
 export type LimitBasis = 'manual' | 'income' | 'average';
@@ -128,7 +129,47 @@ export const T = {
     alertAvg: (avg: string) => `Миёнаи рӯзонаи шумо: ${avg}`,
     alertWhere: 'Пул ба куҷо меравад:',
     open: '📱 Кушодани HISOB PRO',
-    menu: { today: '📊 Имрӯз', month: '🗓 Моҳ', balance: '💰 Баланс', debts: '🤝 Қарзҳо', help: '❓ Кӯмак' },
+    resetLink: (link: string) =>
+      `🔑 <b>Барқарорсозии парол</b>\n\nБарои гузоштани пароли нав ин линкро кушоед (1 соат эътибор дорад):\n<a href="${esc(link)}">Гузоштани пароли нав</a>\n\nАгар шумо дархост накарда бошед, ин паёмро нодида гиред.`,
+    regAskContact:
+      '📱 <b>Тасдиқи рақам</b>\n\nБарои ба охир расондани сабти ном дар HISOB PRO тугмаи поёнро пахш кунед — Telegram рақами шуморо худаш мефиристад.',
+    regContactButton: '📱 Фиристодани рақам',
+    regNotOwn: 'Лутфан рақами <b>худатонро</b> бо тугмаи «📱 Фиристодани рақам» фиристед.',
+    regPhoneTaken: '❌ Ин рақам аллакай дар HISOB PRO сабт шудааст. Дар сайт бо рақам ва парол ворид шавед.',
+    regTelegramTaken: '❌ Ин ҳисоби Telegram аллакай ба HISOB PRO пайваст аст. Дар сайт ворид шавед.',
+    regEmailTaken: '❌ Ин email аллакай сабт шудааст. Дар сайт бо email-и дигар сабти ном кунед.',
+    regClosed: '❌ Сабти ном ҳоло пӯшида аст.',
+    regBadPhone: '❌ Рақамро шинохта натавонистам. Аз нав кӯшиш кунед.',
+    regExpired: '⏳ Линки сабти ном кӯҳна шудааст. Дар сайт аз нав «Сабти ном»-ро пахш кунед.',
+    regDone: (name: string) =>
+      `✅ <b>Сабти ном тамом шуд, ${esc(name)}!</b>\n\nБа сайт баргардед — шумо худкор ворид мешавед.\nВоридшавии минбаъда: <b>рақами телефон + парол</b>.`,
+    reminderTitle: '🔔 <b>Ёдраскунии қарзҳо</b>',
+    dueTomorrowLent: (n: string, a: string) => `📅 Пагоҳ <b>${esc(n)}</b> бояд <b>${a}</b> баргардонад.`,
+    dueTomorrowBorrowed: (n: string, a: string) => `📅 Пагоҳ шумо бояд ба <b>${esc(n)}</b> <b>${a}</b> баргардонед.`,
+    dueTodayLent: (n: string, a: string) => `⏰ Имрӯз муҳлати <b>${esc(n)}</b> аст: <b>${a}</b>.`,
+    dueTodayBorrowed: (n: string, a: string) => `⏰ Имрӯз шумо бояд ба <b>${esc(n)}</b> <b>${a}</b> баргардонед.`,
+    overdueLent: (n: string, a: string, d: number) => `⚠️ <b>${esc(n)}</b> ${d} рӯз дер кардааст: <b>${a}</b>.`,
+    overdueBorrowed: (n: string, a: string, d: number) => `⚠️ Қарзи шумо ба <b>${esc(n)}</b> ${d} рӯз муҳлатгузашта аст: <b>${a}</b>.`,
+    weeklyTitle: (from: string, to: string) => `📆 <b>Ҳисоботи ҳафта</b> — ${from} – ${to}`,
+    monthlyTitle: (m: string) => `🗓 <b>Ҷамъбасти моҳ — ${m}</b>`,
+    vsPrevWeek: 'Нисбат ба ҳафтаи гузашта',
+    vsPrevMonth: 'Нисбат ба моҳи гузашта',
+    vsSameDays: 'Нисбат ба ҳамин рӯзҳои моҳи гузашта',
+    changesTitle: 'Тағйироти калон аз рӯи категория:',
+    newCat: 'нав',
+    insightUp: (cat: string, p: number | null, period: string) =>
+      p === null ? `💡 Дар ${period} ба «${esc(cat)}» харҷи нав пайдо шуд.` : `💡 Дар ${period} ба «${esc(cat)}» ${p}% бештар сарф кардед.`,
+    insightDown: (cat: string, p: number, period: string) => `👍 Дар ${period} ба «${esc(cat)}» ${Math.abs(p)}% камтар сарф кардед.`,
+    periodWeek: 'ин ҳафта',
+    periodMonth: 'ин моҳ',
+    periodLastMonth: 'моҳи гузашта',
+    backupCaption: (date: string, n: number) =>
+      `💾 <b>Нусхаи эҳтиётӣ</b> — ${date}\nАмалиётҳо: ${n}. Ин файлро нигоҳ доред — бо он ҳамаи маълумотро барқарор кардан мумкин аст.`,
+    menu: { today: '📊 Имрӯз', month: '🗓 Моҳ', balance: '💰 Баланс', debts: '🤝 Қарзҳо', photos: '📸 Суратҳо', help: '❓ Кӯмак' },
+    photoHint: '📸 Барои сабти харид бо сурат, дар зери сурат маблағ ва номро нависед, масалан: <code>50 нон</code>',
+    photoSaved: '📸 Сурат нигоҳ дошта шуд — бегоҳ ҳамаи суратҳои харидҳои рӯз меоянд.',
+    photosNone: '📸 Имрӯз сурати харид нест. Суратро бо навиштаи <code>50 нон</code> фиристед.',
+    photosTitle: (n: number, day: string) => `📸 <b>Суратҳои харидҳо — ${day}</b> (${n})`,
     added: (type: 'INCOME' | 'EXPENSE', amount: string, cat: string, account: string, note: string) =>
       `${type === 'INCOME' ? '✅ Даромад' : '✅ Хароҷот'} сабт шуд: <b>${amount}</b>\n📂 ${esc(cat)} · 💳 ${esc(account)}${note ? `\n📝 ${esc(note)}` : ''}`,
     undo: '↩️ Бекор кардан',
@@ -190,7 +231,47 @@ export const T = {
     alertAvg: (avg: string) => `Ваш средний расход в день: ${avg}`,
     alertWhere: 'Куда уходят деньги:',
     open: '📱 Открыть HISOB PRO',
-    menu: { today: '📊 Сегодня', month: '🗓 Месяц', balance: '💰 Баланс', debts: '🤝 Долги', help: '❓ Помощь' },
+    resetLink: (link: string) =>
+      `🔑 <b>Восстановление пароля</b>\n\nЧтобы задать новый пароль, откройте ссылку (действует 1 час):\n<a href="${esc(link)}">Задать новый пароль</a>\n\nЕсли вы не запрашивали, просто проигнорируйте это сообщение.`,
+    regAskContact:
+      '📱 <b>Подтверждение номера</b>\n\nЧтобы завершить регистрацию в HISOB PRO, нажмите кнопку ниже — Telegram сам отправит ваш номер.',
+    regContactButton: '📱 Отправить номер',
+    regNotOwn: 'Пожалуйста, отправьте <b>свой</b> номер кнопкой «📱 Отправить номер».',
+    regPhoneTaken: '❌ Этот номер уже зарегистрирован в HISOB PRO. Войдите на сайте по номеру и паролю.',
+    regTelegramTaken: '❌ Этот аккаунт Telegram уже подключён к HISOB PRO. Войдите на сайте.',
+    regEmailTaken: '❌ Этот email уже зарегистрирован. Зарегистрируйтесь на сайте с другим email.',
+    regClosed: '❌ Регистрация сейчас закрыта.',
+    regBadPhone: '❌ Не удалось распознать номер. Попробуйте ещё раз.',
+    regExpired: '⏳ Ссылка регистрации устарела. Нажмите «Регистрация» на сайте ещё раз.',
+    regDone: (name: string) =>
+      `✅ <b>Регистрация завершена, ${esc(name)}!</b>\n\nВернитесь на сайт — вы войдёте автоматически.\nДальше вход: <b>номер телефона + пароль</b>.`,
+    reminderTitle: '🔔 <b>Напоминание о долгах</b>',
+    dueTomorrowLent: (n: string, a: string) => `📅 Завтра <b>${esc(n)}</b> должен вернуть <b>${a}</b>.`,
+    dueTomorrowBorrowed: (n: string, a: string) => `📅 Завтра вы должны вернуть <b>${esc(n)}</b> <b>${a}</b>.`,
+    dueTodayLent: (n: string, a: string) => `⏰ Сегодня срок у <b>${esc(n)}</b>: <b>${a}</b>.`,
+    dueTodayBorrowed: (n: string, a: string) => `⏰ Сегодня вы должны вернуть <b>${esc(n)}</b> <b>${a}</b>.`,
+    overdueLent: (n: string, a: string, d: number) => `⚠️ <b>${esc(n)}</b> просрочил на ${d} дн.: <b>${a}</b>.`,
+    overdueBorrowed: (n: string, a: string, d: number) => `⚠️ Ваш долг <b>${esc(n)}</b> просрочен на ${d} дн.: <b>${a}</b>.`,
+    weeklyTitle: (from: string, to: string) => `📆 <b>Отчёт за неделю</b> — ${from} – ${to}`,
+    monthlyTitle: (m: string) => `🗓 <b>Итоги месяца — ${m}</b>`,
+    vsPrevWeek: 'По сравнению с прошлой неделей',
+    vsPrevMonth: 'По сравнению с прошлым месяцем',
+    vsSameDays: 'По сравнению с теми же днями прошлого месяца',
+    changesTitle: 'Крупные изменения по категориям:',
+    newCat: 'новое',
+    insightUp: (cat: string, p: number | null, period: string) =>
+      p === null ? `💡 ${period} появились траты на «${esc(cat)}».` : `💡 ${period} вы потратили на «${esc(cat)}» на ${p}% больше.`,
+    insightDown: (cat: string, p: number, period: string) => `👍 ${period} вы потратили на «${esc(cat)}» на ${Math.abs(p)}% меньше.`,
+    periodWeek: 'На этой неделе',
+    periodMonth: 'В этом месяце',
+    periodLastMonth: 'В прошлом месяце',
+    backupCaption: (date: string, n: number) =>
+      `💾 <b>Резервная копия</b> — ${date}\nОпераций: ${n}. Сохраните файл — по нему можно восстановить все данные.`,
+    menu: { today: '📊 Сегодня', month: '🗓 Месяц', balance: '💰 Баланс', debts: '🤝 Долги', photos: '📸 Фото', help: '❓ Помощь' },
+    photoHint: '📸 Чтобы записать покупку с фото, напишите под фото сумму и название, например: <code>50 хлеб</code>',
+    photoSaved: '📸 Фото сохранено — вечером придут все фото покупок за день.',
+    photosNone: '📸 Сегодня нет фото покупок. Отправьте фото с подписью <code>50 хлеб</code>.',
+    photosTitle: (n: number, day: string) => `📸 <b>Фото покупок — ${day}</b> (${n})`,
     added: (type: 'INCOME' | 'EXPENSE', amount: string, cat: string, account: string, note: string) =>
       `${type === 'INCOME' ? '✅ Доход' : '✅ Расход'} записан: <b>${amount}</b>\n📂 ${esc(cat)} · 💳 ${esc(account)}${note ? `\n📝 ${esc(note)}` : ''}`,
     undo: '↩️ Отменить',
@@ -210,10 +291,10 @@ export const T = {
 };
 
 const HELP_TG =
-  '✍️ <b>Сабт бо як паём:</b>\n<code>50 хӯрок</code> — хароҷот\n<code>-20 такси</code> — хароҷот\n<code>+3000 маош</code> — даромад\nКатегория худкор муайян мешавад.\n\n' +
+  '✍️ <b>Сабт бо як паём:</b>\n<code>50 хӯрок</code> — хароҷот\n<code>-20 такси</code> — хароҷот\n<code>+3000 маош</code> — даромад\nКатегория худкор муайян мешавад.\n📸 Сурат бо навиштаи <code>50 нон</code> — харид бо сурат.\n\n' +
   '<b>Фармонҳо:</b>\n/today — ҳисоботи имрӯз\n/month — ҳисоботи ҳамин моҳ\n/balance — баланси ҳисобҳо\n/debts — қарзҳо\n/limit — меъёри хароҷоти рӯзона\n/daily — ҳисоботи 21:00 фаъол/хомӯш\n/stop — ҷудо кардани бот';
 const HELP_RU =
-  '✍️ <b>Запись одним сообщением:</b>\n<code>50 еда</code> — расход\n<code>-20 такси</code> — расход\n<code>+3000 зарплата</code> — доход\nКатегория определяется автоматически.\n\n' +
+  '✍️ <b>Запись одним сообщением:</b>\n<code>50 еда</code> — расход\n<code>-20 такси</code> — расход\n<code>+3000 зарплата</code> — доход\nКатегория определяется автоматически.\n📸 Фото с подписью <code>50 хлеб</code> — покупка с фото.\n\n' +
   '<b>Команды:</b>\n/today — отчёт за сегодня\n/month — отчёт за месяц\n/balance — баланс счетов\n/debts — долги\n/limit — дневная норма расходов\n/daily — вкл/выкл отчёт в 21:00\n/stop — отключить бота';
 T.tg.help = HELP_TG;
 T.ru.help = HELP_RU;
@@ -375,4 +456,107 @@ export function matchCategory<C extends { id: string; name: string }>(text: stri
     if (best) return best.c;
   }
   return categories.find((c) => ['дигар', 'другое', 'прочее'].includes(norm(c.name))) ?? null;
+}
+
+/* ------------------------- Муқоиса, ҳафта, моҳ, ёдраскунӣ ------------------------- */
+
+export function pctLabel(p: number | null, lang: Lang): string {
+  if (p === null) return T[lang].newCat;
+  return `${p > 0 ? '+' : ''}${p}%`;
+}
+
+/** Блоки муқоиса: хароҷот/даромад, тағйироти категорияҳо ва як маслиҳат */
+export function comparisonBlock(
+  cur: Summary,
+  prev: Summary,
+  changes: CategoryChange[],
+  label: string,
+  period: string,
+  lang: Lang,
+): string[] {
+  const t = T[lang];
+  const c = cur.viewCurrency;
+  const lines = [
+    `📊 <b>${label}</b>:`,
+    `💸 ${t.expense}: ${fmt(prev.expense, c)} → <b>${fmt(cur.expense, c)}</b> (${pctLabel(pctChange(cur.expense, prev.expense), lang)})`,
+    `💰 ${t.income}: ${fmt(prev.income, c)} → <b>${fmt(cur.income, c)}</b> (${pctLabel(pctChange(cur.income, prev.income), lang)})`,
+  ];
+  if (changes.length) {
+    lines.push('', t.changesTitle);
+    for (const ch of changes.slice(0, 3)) {
+      lines.push(`• ${esc(ch.name === '—' ? '—' : ch.name)}: ${fmt(ch.prev, c)} → ${fmt(ch.cur, c)} (${pctLabel(ch.pct, lang)})`);
+    }
+    const up = changes.find((ch) => dec(ch.diff).gt(0));
+    const down = changes.find((ch) => dec(ch.diff).lt(0) && ch.pct !== null);
+    if (up) lines.push('', t.insightUp(up.name, up.pct, period));
+    else if (down) lines.push('', t.insightDown(down.name, down.pct!, period));
+  }
+  return lines;
+}
+
+export interface PeriodCompare {
+  cur: { summary: Summary; cats: CategoryShare[] };
+  prev: { summary: Summary; cats: CategoryShare[] };
+  changes: CategoryChange[];
+}
+
+export function weeklyMessage(from: string, to: string, d: PeriodCompare, lang: Lang): string {
+  const t = T[lang];
+  const s = d.cur.summary;
+  const c = s.viewCurrency;
+  const lines = [
+    t.weeklyTitle(dayLabel(from, lang), dayLabel(to, lang)),
+    '',
+    `💰 ${t.income}: <b>${fmt(s.income, c)}</b>`,
+    `💸 ${t.expense}: <b>${fmt(s.expense, c)}</b>`,
+    `📈 ${t.net}: <b>${fmt(s.net, c, true)}</b>`,
+  ];
+  if (d.cur.cats.length) lines.push('', t.where, ...d.cur.cats.slice(0, 4).map((x) => `• ${esc(x.name)} — ${fmt(x.amount, c)} (${Math.round(Number(x.share))}%)`));
+  lines.push('', ...comparisonBlock(s, d.prev.summary, d.changes, t.vsPrevWeek, t.periodWeek, lang));
+  if (s.missingRates.length) lines.push('', t.missing(s.missingRates.join(', ')));
+  return lines.join('\n');
+}
+
+const MONTH_NAMES: Record<Lang, string[]> = {
+  tg: ['январ', 'феврал', 'март', 'апрел', 'май', 'июн', 'июл', 'август', 'сентябр', 'октябр', 'ноябр', 'декабр'],
+  ru: ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь', 'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'],
+};
+export const monthName = (key: string, lang: Lang) => `${MONTH_NAMES[lang][Number(key.slice(5, 7)) - 1]} ${key.slice(0, 4)}`;
+
+export function monthlyReportMessage(monthKey: string, d: PeriodCompare, lang: Lang): string {
+  const t = T[lang];
+  const s = d.cur.summary;
+  const c = s.viewCurrency;
+  const lines = [
+    t.monthlyTitle(monthName(monthKey, lang)),
+    '',
+    `💰 ${t.income}: <b>${fmt(s.income, c)}</b>`,
+    `💸 ${t.expense}: <b>${fmt(s.expense, c)}</b>`,
+    `📈 ${t.net}: <b>${fmt(s.net, c, true)}</b>`,
+  ];
+  if (d.cur.cats.length) lines.push('', t.where, ...d.cur.cats.slice(0, 5).map((x) => `• ${esc(x.name)} — ${fmt(x.amount, c)} (${Math.round(Number(x.share))}%)`));
+  lines.push('', ...comparisonBlock(s, d.prev.summary, d.changes, t.vsPrevMonth, t.periodLastMonth, lang));
+  if (s.missingRates.length) lines.push('', t.missing(s.missingRates.join(', ')));
+  return lines.join('\n');
+}
+
+export interface ReminderItem {
+  kind: 'tomorrow' | 'today' | 'overdue';
+  direction: 'LENT' | 'BORROWED';
+  name: string;
+  amount: string; // аллакай формат шуда
+  days?: number;
+}
+
+export function reminderMessage(items: ReminderItem[], lang: Lang): string {
+  const t = T[lang];
+  const order = { overdue: 0, today: 1, tomorrow: 2 } as const;
+  const lines = [t.reminderTitle, ''];
+  for (const i of [...items].sort((a, b) => order[a.kind] - order[b.kind])) {
+    const lent = i.direction === 'LENT';
+    if (i.kind === 'tomorrow') lines.push(lent ? t.dueTomorrowLent(i.name, i.amount) : t.dueTomorrowBorrowed(i.name, i.amount));
+    else if (i.kind === 'today') lines.push(lent ? t.dueTodayLent(i.name, i.amount) : t.dueTodayBorrowed(i.name, i.amount));
+    else lines.push(lent ? t.overdueLent(i.name, i.amount, i.days ?? 1) : t.overdueBorrowed(i.name, i.amount, i.days ?? 1));
+  }
+  return lines.join('\n');
 }

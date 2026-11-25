@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import clsx from 'clsx';
 import {
+  Camera,
   ArrowDownLeft,
   ArrowLeftRight,
   ArrowUpRight,
@@ -11,6 +13,27 @@ import { useI18n } from '../i18n';
 import { formatDate, formatTime } from '../lib/dates';
 import { formatMoney } from '../lib/format';
 import type { Transaction, TxType } from '../lib/types';
+import { photoUrl } from '../lib/image';
+import { Modal } from './ui/Modal';
+
+function PhotoButton({ tx, onOpen }: { tx: Transaction; onOpen: (t: Transaction) => void }) {
+  const { t } = useI18n();
+  if (!tx.hasPhoto) return null;
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpen(tx);
+      }}
+      className="shrink-0 rounded-md p-1 text-brand-500 hover:bg-brand-500/10"
+      title={t('viewPhoto')}
+      aria-label={t('viewPhoto')}
+    >
+      <Camera className="h-3.5 w-3.5" />
+    </button>
+  );
+}
 
 const PLUS: TxType[] = ['INCOME', 'TRANSFER_IN', 'DEBT_BORROWED', 'DEBT_COLLECTED'];
 
@@ -59,8 +82,14 @@ export function TxTable({
 }) {
   const { t } = useI18n();
   const hasActions = !!(onEdit || onDelete);
+  const [viewing, setViewing] = useState<Transaction | null>(null);
   return (
     <>
+      <Modal open={!!viewing} onClose={() => setViewing(null)} title={viewing ? `${label(viewing, t)} · ${formatMoney(viewing.amount, viewing.currency)}` : ''}>
+        {viewing && (
+          <img src={photoUrl(viewing.id, viewing.updatedAt)} alt={t('photo')} className="mx-auto max-h-[70vh] w-auto rounded-xl" />
+        )}
+      </Modal>
       {/* Desktop */}
       <div className="scrollbar-thin hidden overflow-x-auto md:block">
         <table className="w-full">
@@ -97,6 +126,7 @@ export function TxTable({
                     <span className="flex items-center gap-2">
                       {tx.category && <span className="h-2 w-2 rounded-full" style={{ background: tx.category.color }} />}
                       <span className="max-w-[180px] truncate">{label(tx, t)}</span>
+                      <PhotoButton tx={tx} onOpen={setViewing} />
                     </span>
                   </td>
                   <td className="td text-right">
@@ -146,7 +176,10 @@ export function TxTable({
                 <Icon className="h-4 w-4" />
               </span>
               <div className="min-w-0 flex-1" onClick={() => editable && onEdit?.(tx)}>
-                <p className="truncate text-sm font-semibold">{label(tx, t)}</p>
+                <p className="flex items-center gap-1 text-sm font-semibold">
+                  <span className="truncate">{label(tx, t)}</span>
+                  <PhotoButton tx={tx} onOpen={setViewing} />
+                </p>
                 <p className="truncate text-xs text-slate-500">
                   {formatDate(tx.occurredAt)} {formatTime(tx.occurredAt)} · {tx.account?.name}
                 </p>

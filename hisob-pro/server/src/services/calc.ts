@@ -356,3 +356,51 @@ export function summarizeDebts(debts: DebtLike[], base: CurrencyCode, rates: Rat
     missingRates: [...missing],
   };
 }
+
+/* ----------------------------- Муқоиса ----------------------------- */
+
+/** Фоизи тағйир (бутун). null — агар давраи қаблӣ 0 бошад (тақсим ба сифр нест) */
+export function pctChange(cur: DecimalLike, prev: DecimalLike): number | null {
+  const p = dec(prev);
+  if (p.isZero()) return null;
+  return dec(cur).minus(p).div(p).times(100).toDecimalPlaces(0).toNumber();
+}
+
+export interface CategoryChange {
+  categoryId: string | null;
+  name: string;
+  color: string;
+  cur: string;
+  prev: string;
+  diff: string;
+  pct: number | null;
+}
+
+/** Тағйироти хароҷот аз рӯи категорияҳо: калонтарин тағйирот (ба ҳар ду тараф) аввал */
+export function categoryChanges(cur: CategoryShare[], prev: CategoryShare[], top = 5): CategoryChange[] {
+  const map = new Map<string, { id: string | null; name: string; color: string; cur: Decimal; prev: Decimal }>();
+  const add = (list: CategoryShare[], field: 'cur' | 'prev') => {
+    for (const c of list) {
+      const key = c.categoryId ?? '__none__';
+      const e = map.get(key) ?? { id: c.categoryId, name: c.name, color: c.color, cur: new Decimal(0), prev: new Decimal(0) };
+      e[field] = e[field].plus(dec(c.amount));
+      map.set(key, e);
+    }
+  };
+  add(cur, 'cur');
+  add(prev, 'prev');
+  return [...map.values()]
+    .map((e) => ({ ...e, diff: e.cur.minus(e.prev) }))
+    .filter((e) => !e.diff.isZero())
+    .sort((a, b) => b.diff.abs().comparedTo(a.diff.abs()))
+    .slice(0, top)
+    .map((e) => ({
+      categoryId: e.id,
+      name: e.name,
+      color: e.color,
+      cur: money(e.cur),
+      prev: money(e.prev),
+      diff: money(e.diff),
+      pct: pctChange(e.cur, e.prev),
+    }));
+}

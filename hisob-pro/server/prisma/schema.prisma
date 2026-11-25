@@ -59,9 +59,11 @@ enum DebtDirection {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String
+  id             String   @id @default(cuid())
+  email          String?  @unique // ихтиёрӣ — корбарони Telegram метавонанд бо рақам ворид шаванд
+  phone          String?  @unique // рақами тасдиқшуда аз Telegram (+992...) — як ҳисоб барои як рақам
+  telegramUserId String?  @unique // id-и корбар дар Telegram — як ҳисоб барои як Telegram
+  name           String
   passwordHash String
   language     Language @default(tg)
   baseCurrency Currency @default(TJS)
@@ -79,6 +81,7 @@ model User {
   exchangeRates ExchangeRate[]
   telegram      TelegramLink?
   telegramCodes TelegramLinkCode[]
+  photos        TransactionPhoto[]
 }
 
 model Session {
@@ -168,6 +171,7 @@ model Transaction {
   debt          Debt?          @relation(fields: [debtId], references: [id], onDelete: Cascade)
   debtPaymentId String?        @unique
   debtPayment   DebtPayment?   @relation(fields: [debtPaymentId], references: [id], onDelete: Cascade)
+  photo         TransactionPhoto?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
@@ -266,6 +270,10 @@ model TelegramLink {
   notifyDaily   Boolean  @default(true)
   lastDailyDay  String?  // 'yyyy-MM-dd' — ҳисоботи рӯз фиристода шуд
   lastAlertDay  String?  // огоҳии "хароҷоти зиёд" — як бор дар рӯз
+  lastReminderDay String? // ёдраскунии қарзҳо (09:00)
+  lastWeeklyKey   String? // ҳисоботи ҳафтаина — душанбеи ҳафта
+  lastMonthlyKey  String? // ҳисоботи моҳона — 'yyyy-MM'
+  lastBackupDay   String? // нусхаи эҳтиётӣ
   linkedAt      DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
@@ -280,4 +288,49 @@ model TelegramLinkCode {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+// ---------------------------- Суратҳои харид ----------------------------
+
+// Сурати харид/чек (JPEG-и фишурдашуда, ~100–300 KB). Дар база нигоҳ дошта мешавад.
+model TransactionPhoto {
+  id             String      @id @default(cuid())
+  transactionId  String      @unique
+  transaction    Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mime           String
+  size           Int
+  data           Bytes
+  telegramFileId String?     // агар аз Telegram омада бошад — бе боргирии дубора фиристода мешавад
+  createdAt      DateTime    @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// ---------------------------- Сабти ном тавассути Telegram ----------------------------
+
+// Сабти номи интизорӣ: то тасдиқи рақам дар Telegram (15 дақиқа)
+model PendingRegistration {
+  id              String   @id @default(cuid())
+  codeHash        String   @unique // барои t.me/bot?start=reg_CODE
+  pollTokenHash   String   @unique // браузер бо ин ҳолатро месанҷад
+  name            String
+  email           String?
+  passwordHash    String
+  language        Language @default(tg)
+  chatId          String?
+  completedUserId String?
+  error           String?
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+
+  @@index([chatId])
+}
+
+// Танзимоти умумии платформа (масалан: сабти ном кушода/пӯшида)
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }

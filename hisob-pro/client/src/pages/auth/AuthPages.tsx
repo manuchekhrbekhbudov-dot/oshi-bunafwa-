@@ -1,13 +1,15 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Eye, EyeOff, Lock, Mail, User as UserIcon, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, User as UserIcon, CheckCircle2, ShieldCheck, Send, Loader2 } from 'lucide-react';
 import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Button } from '../../components/ui/Button';
 import { Field, Input } from '../../components/ui/Field';
 import { useI18n } from '../../i18n';
 import { useAuth } from '../../hooks/useAuth';
 import { api, ApiError } from '../../lib/api';
+import type { User } from '../../lib/types';
+import type { DictKey } from '../../i18n/dict';
 
 function PasswordInput({ value, onChange, invalid, autoComplete }: { value: string; onChange: (v: string) => void; invalid?: boolean; autoComplete?: string }) {
   const [show, setShow] = useState(false);
@@ -29,14 +31,20 @@ function PasswordInput({ value, onChange, invalid, autoComplete }: { value: stri
   );
 }
 
-/** Оё сабти ном кушода аст? (платформаи шахсӣ — танҳо ҳисоби аввал) */
-function useRegistrationOpen() {
-  const q = useQuery({
+interface RegistrationInfo {
+  open: boolean;
+  email: boolean;
+  telegram: boolean;
+  botUsername: string | null;
+}
+
+/** Кадом роҳи сабти ном кушода аст: email (соҳиби аввал), Telegram (дигарон) ё пӯшида */
+function useRegistration() {
+  return useQuery({
     queryKey: ['registration'],
-    queryFn: () => api.get<{ open: boolean }>('/auth/registration'),
+    queryFn: () => api.get<RegistrationInfo>('/auth/registration'),
     staleTime: 30_000,
-  });
-  return q.data?.open;
+  }).data;
 }
 
 function FormError({ msg }: { msg: string }) {
@@ -48,17 +56,17 @@ export function LoginPage() {
   const { t } = useI18n();
   const { login } = useAuth();
   const nav = useNavigate();
-  const [email, setEmail] = useState('');
+  const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
-  const registrationOpen = useRegistrationOpen();
+  const registration = useRegistration();
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setErr('');
     setLoading(true);
     try {
-      await login(email, password);
+      await login(loginId, password);
       nav('/', { replace: true });
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : String(e));
@@ -70,8 +78,16 @@ export function LoginPage() {
     <AuthLayout title={t('welcomeBack')} subtitle={t('loginSubtitle')}>
       <form onSubmit={submit} className="space-y-4">
         <FormError msg={err} />
-        <Field label={t('email')}>
-          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} leading={<Mail className="h-4 w-4" />} autoComplete="email" required />
+        <Field label={t('loginId')}>
+          <Input
+            value={loginId}
+            onChange={(e) => setLoginId(e.target.value)}
+            leading={<UserIcon className="h-4 w-4" />}
+            placeholder={t('loginIdPh')}
+            autoComplete="username"
+            autoCapitalize="none"
+            required
+          />
         </Field>
         <Field label={t('password')}>
           <PasswordInput value={password} onChange={setPassword} autoComplete="current-password" />
@@ -84,7 +100,7 @@ export function LoginPage() {
         <Button type="submit" size="lg" className="w-full justify-center" loading={loading}>
           {t('login')}
         </Button>
-        {registrationOpen && (
+        {registration?.open && (
           <p className="text-center text-sm text-slate-500">
             {t('noAccount')}{' '}
             <Link to="/register" className="font-semibold text-brand-500 hover:underline">
@@ -97,7 +113,8 @@ export function LoginPage() {
   );
 }
 
-export function RegisterPage() {
+/** Корбари аввал (соҳиб) ё реҷаи open: ном + email + парол */
+function EmailRegisterForm() {
   const { t } = useI18n();
   const { register } = useAuth();
   const nav = useNavigate();
@@ -107,7 +124,6 @@ export function RegisterPage() {
   const [fields, setFields] = useState<Record<string, string>>({});
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
-  const registrationOpen = useRegistrationOpen();
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setErr('');
@@ -126,47 +142,185 @@ export function RegisterPage() {
     }
   };
   return (
-    <AuthLayout title={t('register')} subtitle={registrationOpen === false ? undefined : t('registerSubtitle')}>
-      {registrationOpen === false ? (
-        <div className="space-y-4">
-          <div className="flex gap-3 rounded-2xl bg-brand-500/10 p-4 text-sm text-brand-700 dark:text-brand-200">
-            <ShieldCheck className="h-5 w-5 shrink-0" />
-            {t('registrationClosed')}
-          </div>
-          <Link to="/login" className="block text-center text-sm font-semibold text-brand-500">
-            {t('backToLogin')}
-          </Link>
+    <form onSubmit={submit} className="space-y-4">
+      <FormError msg={err} />
+      <Field label={t('name')} error={fields.name}>
+        <Input value={name} onChange={(e) => setName(e.target.value)} leading={<UserIcon className="h-4 w-4" />} autoComplete="name" invalid={!!fields.name} required />
+      </Field>
+      <Field label={t('email')} error={fields.email}>
+        <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} leading={<Mail className="h-4 w-4" />} autoComplete="email" invalid={!!fields.email} required />
+      </Field>
+      <Field label={t('password')} error={fields.password} hint={t('passwordRule')}>
+        <PasswordInput value={password} onChange={setPassword} invalid={!!fields.password} autoComplete="new-password" />
+      </Field>
+      <Button type="submit" size="lg" className="w-full justify-center" loading={loading}>
+        {t('register')}
+      </Button>
+    </form>
+  );
+}
+
+type TgStatus = { status: 'waiting'; chatOpened: boolean } | { status: 'error'; code: string } | { status: 'done'; user: User };
+
+/** Дигарон: ном + парол (+ email ихтиёрӣ) → тасдиқи рақам дар Telegram → воридшавии худкор */
+function TelegramRegisterForm() {
+  const { t, lang } = useI18n();
+  const { setUser } = useAuth();
+  const nav = useNavigate();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fields, setFields] = useState<Record<string, string>>({});
+  const [err, setErr] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [flow, setFlow] = useState<{ url: string; pollToken: string } | null>(null);
+  const [chatOpened, setChatOpened] = useState(false);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setErr('');
+    setFields({});
+    setLoading(true);
+    try {
+      const r = await api.post<{ url: string; pollToken: string }>('/auth/register/telegram', {
+        name,
+        password,
+        email: email.trim() || null,
+        language: lang,
+      });
+      setFlow(r);
+      setChatOpened(false);
+      window.open(r.url, '_blank', 'noopener');
+    } catch (e) {
+      if (e instanceof ApiError) {
+        setFields(e.fields);
+        if (!Object.keys(e.fields).length) setErr(e.message);
+      } else setErr(String(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // То тасдиқ дар Telegram ҳар 2 сония месанҷем
+  useEffect(() => {
+    if (!flow) return;
+    let stop = false;
+    const tick = async () => {
+      try {
+        const s = await api.get<TgStatus>('/auth/register/telegram/status', { token: flow.pollToken });
+        if (stop) return;
+        if (s.status === 'done') {
+          stop = true;
+          setUser(s.user);
+          nav('/', { replace: true });
+        } else if (s.status === 'error') {
+          stop = true;
+          setFlow(null);
+          const key = `regErr_${s.code}` as DictKey;
+          setErr(t(key) === key ? s.code : t(key));
+        } else setChatOpened(s.chatOpened);
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 410) {
+          stop = true;
+          setFlow(null);
+          setErr(t('regTgExpired'));
+        }
+      }
+    };
+    const id = setInterval(() => void tick(), 2000);
+    void tick();
+    return () => {
+      stop = true;
+      clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flow?.pollToken]);
+
+  if (flow) {
+    return (
+      <div className="space-y-5">
+        <div className="rounded-2xl border border-brand-500/30 bg-brand-500/10 p-4">
+          <p className="mb-3 flex items-center gap-2 font-bold">
+            <Send className="h-5 w-5 text-brand-500" /> {t('regTgTitle')}
+          </p>
+          <ol className="space-y-2 text-sm text-slate-700 dark:text-slate-200">
+            <li>1. {t('regTgStep1')}</li>
+            <li>2. {t('regTgStep2')}</li>
+            <li>3. {t('regTgStep3')}</li>
+          </ol>
         </div>
-      ) : (
-      <form onSubmit={submit} className="space-y-4">
-        <FormError msg={err} />
-        <Field label={t('name')} error={fields.name}>
-          <Input value={name} onChange={(e) => setName(e.target.value)} leading={<UserIcon className="h-4 w-4" />} autoComplete="name" invalid={!!fields.name} required />
-        </Field>
-        <Field label={t('email')} error={fields.email}>
-          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} leading={<Mail className="h-4 w-4" />} autoComplete="email" invalid={!!fields.email} required />
-        </Field>
-        <Field label={t('password')} error={fields.password} hint={t('passwordRule')}>
-          <PasswordInput value={password} onChange={setPassword} invalid={!!fields.password} autoComplete="new-password" />
-        </Field>
-        <Button type="submit" size="lg" className="w-full justify-center" loading={loading}>
-          {t('register')}
-        </Button>
-        <p className="text-center text-sm text-slate-500">
-          {t('haveAccount')}{' '}
-          <Link to="/login" className="font-semibold text-brand-500 hover:underline">
-            {t('login')}
-          </Link>
+        <a href={flow.url} target="_blank" rel="noopener noreferrer" className="block">
+          <Button type="button" size="lg" className="w-full justify-center" icon={<Send className="h-4 w-4" />}>
+            {t('regTgOpen')}
+          </Button>
+        </a>
+        <p className="flex items-center justify-center gap-2 text-sm text-slate-500" data-testid="tg-status">
+          <Loader2 className="h-4 w-4 animate-spin text-brand-500" />
+          {chatOpened ? t('regTgChatOpened') : t('regTgWaiting')}
         </p>
-      </form>
+        <button type="button" onClick={() => setFlow(null)} className="block w-full text-center text-xs font-semibold text-slate-500 hover:text-brand-500">
+          {t('regTgRestart')}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-4">
+      <FormError msg={err} />
+      <div className="flex gap-2 rounded-xl bg-blue-500/10 px-3 py-2.5 text-xs text-blue-700 dark:text-blue-300">
+        <ShieldCheck className="h-4 w-4 shrink-0" />
+        {t('regTgNote')}
+      </div>
+      <Field label={t('name')} error={fields.name}>
+        <Input value={name} onChange={(e) => setName(e.target.value)} leading={<UserIcon className="h-4 w-4" />} autoComplete="name" invalid={!!fields.name} required />
+      </Field>
+      <Field label={t('password')} error={fields.password} hint={t('passwordRule')}>
+        <PasswordInput value={password} onChange={setPassword} invalid={!!fields.password} autoComplete="new-password" />
+      </Field>
+      <Field label={t('emailOptional')} error={fields.email}>
+        <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} leading={<Mail className="h-4 w-4" />} autoComplete="email" invalid={!!fields.email} />
+      </Field>
+      <Button type="submit" size="lg" className="w-full justify-center" loading={loading}>
+        {t('regViaTelegram')}
+      </Button>
+    </form>
+  );
+}
+
+export function RegisterPage() {
+  const { t } = useI18n();
+  const registration = useRegistration();
+  const closed = registration && !registration.open;
+  return (
+    <AuthLayout title={t('register')} subtitle={closed ? undefined : t('registerSubtitle')}>
+      {!registration ? (
+        <div className="grid place-items-center py-10">
+          <Loader2 className="h-6 w-6 animate-spin text-brand-500" />
+        </div>
+      ) : closed ? (
+        <div className="flex gap-3 rounded-2xl bg-brand-500/10 p-4 text-sm text-brand-700 dark:text-brand-200">
+          <ShieldCheck className="h-5 w-5 shrink-0" />
+          {t('registrationClosed')}
+        </div>
+      ) : registration.email ? (
+        <EmailRegisterForm />
+      ) : (
+        <TelegramRegisterForm />
       )}
+      <p className="mt-6 text-center text-sm text-slate-500">
+        {t('haveAccount')}{' '}
+        <Link to="/login" className="font-semibold text-brand-500 hover:underline">
+          {t('login')}
+        </Link>
+      </p>
     </AuthLayout>
   );
 }
 
 export function ForgotPasswordPage() {
   const { t } = useI18n();
-  const [email, setEmail] = useState('');
+  const [loginId, setLoginId] = useState('');
   const [sent, setSent] = useState(false);
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
@@ -175,7 +329,7 @@ export function ForgotPasswordPage() {
     setLoading(true);
     setErr('');
     try {
-      await api.post('/auth/forgot-password', { email });
+      await api.post('/auth/forgot-password', { login: loginId });
       setSent(true);
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : String(e));
@@ -198,8 +352,8 @@ export function ForgotPasswordPage() {
       ) : (
         <form onSubmit={submit} className="space-y-4">
           <FormError msg={err} />
-          <Field label={t('email')}>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} leading={<Mail className="h-4 w-4" />} required />
+          <Field label={t('loginId')}>
+            <Input value={loginId} onChange={(e) => setLoginId(e.target.value)} leading={<UserIcon className="h-4 w-4" />} placeholder={t('loginIdPh')} autoCapitalize="none" required />
           </Field>
           <Button type="submit" size="lg" className="w-full justify-center" loading={loading}>
             {t('sendLink')}

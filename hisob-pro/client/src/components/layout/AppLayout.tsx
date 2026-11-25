@@ -96,7 +96,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold">{user?.name}</p>
-            <p className="truncate text-[11px] text-slate-500">{user?.email}</p>
+            <p className="truncate text-[11px] text-slate-500">{user?.email ?? user?.phone}</p>
           </div>
           <button
             onClick={logout}

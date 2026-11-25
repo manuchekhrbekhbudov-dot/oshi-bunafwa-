@@ -3,6 +3,7 @@ import {
   daysBetween,
   endOfDayExclusiveTz,
   monthsBetween,
+  previousRange,
   shiftDay,
   shiftMonth,
   startOfDayTz,
@@ -15,6 +16,7 @@ import { getUserContext } from './context.js';
 import {
   buildSeries,
   categoryBreakdown,
+  categoryChanges,
   summarize,
   summarizeDebts,
   totalBalance,
@@ -92,8 +94,15 @@ export async function periodReport(
   const start = startOfDayTz(from);
   const end = endOfDayExclusiveTz(to);
   const view: ViewOptions = { base: ctx.base, rates: ctx.rates, currency: opts.currency };
-  const rows = await loadLedgerRows(userId, start, end);
+  // Давраи ҷорӣ, ки ба оянда мерасад (масалан тамоми ноябр, имрӯз 25-ум) → бо ҳамон рӯзҳо муқоиса мешавад
+  const today = todayKey();
+  const prevRange = previousRange(from, to > today && from <= today ? today : to);
+  const [rows, prevRows] = await Promise.all([
+    loadLedgerRows(userId, start, end),
+    loadLedgerRows(userId, startOfDayTz(prevRange.from), endOfDayExclusiveTz(prevRange.to)),
+  ]);
   const pnlCount = rows.filter((r) => r.type === 'INCOME' || r.type === 'EXPENSE').length;
+  const expenseByCategory = categoryBreakdown(rows, 'EXPENSE', view);
   return {
     from,
     to,
@@ -102,8 +111,11 @@ export async function periodReport(
     operationsCount: rows.length,
     pnlCount,
     series: buildSeries(rows, bucketKeys(from, to, g), g, view),
-    expenseByCategory: categoryBreakdown(rows, 'EXPENSE', view),
+    expenseByCategory,
     incomeByCategory: categoryBreakdown(rows, 'INCOME', view),
+    /** Муқоиса бо давраи қаблӣ (ҳамон рӯзҳои моҳи гузашта ё ҳамон шумораи рӯзҳо) */
+    previous: { ...prevRange, summary: summarize(prevRows, view) },
+    changes: categoryChanges(expenseByCategory, categoryBreakdown(prevRows, 'EXPENSE', view)),
   };
 }
 

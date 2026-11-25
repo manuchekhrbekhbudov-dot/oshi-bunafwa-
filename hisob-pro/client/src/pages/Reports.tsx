@@ -11,8 +11,8 @@ import { TxTable } from '../components/TxTable';
 import { CategoryBars, CategoryDonut, IncomeExpenseBars } from '../components/charts/Charts';
 import { download } from '../lib/api';
 import { formatDay, monthEnd, monthStart, seriesLabel, shiftDay, todayKey, weekStart } from '../lib/dates';
-import { formatMoney } from '../lib/format';
-import type { Currency, Summary } from '../lib/types';
+import { formatMoney, pctChange } from '../lib/format';
+import type { Currency, PeriodReport, Summary } from '../lib/types';
 
 function ExportButtons({ params }: { params: Record<string, string | undefined> }) {
   const toast = useToast();
@@ -157,6 +157,82 @@ function DailyTab() {
   );
 }
 
+function PctBadge({ p, goodWhenDown, newLabel }: { p: number | null; goodWhenDown?: boolean; newLabel: string }) {
+  if (p === null) return <span className="rounded-md bg-blue-500/10 px-1.5 py-0.5 text-[11px] font-bold text-blue-500">{newLabel}</span>;
+  const up = p > 0;
+  const good = goodWhenDown ? !up : up;
+  return (
+    <span
+      className={clsx(
+        'rounded-md px-1.5 py-0.5 text-[11px] font-bold',
+        p === 0 ? 'bg-slate-500/10 text-slate-500' : good ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+      )}
+    >
+      {up ? '▲' : p < 0 ? '▼' : ''} {up ? '+' : ''}
+      {p}%
+    </span>
+  );
+}
+
+/** Муқоиса бо давраи қаблӣ: ҷамъҳо ва тағйироти калонтарини категорияҳо */
+function ComparisonCard({ r }: { r: PeriodReport }) {
+  const { t, lang } = useI18n();
+  const c = r.summary.viewCurrency;
+  const prev = r.previous.summary;
+  const rows = [
+    { label: t('tx_EXPENSE'), cur: r.summary.expense, prev: prev.expense, goodWhenDown: true },
+    { label: t('tx_INCOME'), cur: r.summary.income, prev: prev.income, goodWhenDown: false },
+  ];
+  const up = r.changes.find((x) => Number(x.diff) > 0);
+  const down = r.changes.find((x) => Number(x.diff) < 0 && x.pct !== null);
+  const insight = up
+    ? up.pct === null
+      ? t('cmpInsightNew', { c: up.name })
+      : t('cmpInsightUp', { c: up.name, p: up.pct })
+    : down
+      ? t('cmpInsightDown', { c: down.name, p: Math.abs(down.pct!) })
+      : null;
+  return (
+    <Card>
+      <CardHeader title={t('cmpTitle')} subtitle={`${formatDay(r.previous.from, lang)} — ${formatDay(r.previous.to, lang)}`} />
+      <div className="grid gap-4 p-5 lg:grid-cols-2">
+        <div className="space-y-3">
+          {rows.map((x) => (
+            <div key={x.label} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 p-3 dark:bg-white/[0.03]">
+              <span className="text-sm font-semibold">{x.label}</span>
+              <span className="num flex flex-wrap items-center gap-2 text-sm">
+                <span className="text-slate-500">{formatMoney(x.prev, c)}</span>→<b>{formatMoney(x.cur, c)}</b>
+                <PctBadge p={pctChange(x.cur, x.prev)} goodWhenDown={x.goodWhenDown} newLabel={t('cmpNew')} />
+              </span>
+            </div>
+          ))}
+          {insight && <p className="rounded-xl bg-brand-500/10 px-3 py-2.5 text-sm text-brand-700 dark:text-brand-200">💡 {insight}</p>}
+        </div>
+        <div>
+          {r.changes.length === 0 ? (
+            <p className="text-sm text-slate-500">{t('cmpNoChanges')}</p>
+          ) : (
+            <ul className="space-y-2">
+              {r.changes.map((x) => (
+                <li key={x.categoryId ?? 'none'} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: x.color }} />
+                    <span className="truncate font-medium">{x.name === '—' ? t('noCategory') : x.name}</span>
+                  </span>
+                  <span className="num flex items-center gap-2 text-xs">
+                    <span className="text-slate-500">{formatMoney(x.prev, c)}</span>→<b>{formatMoney(x.cur, c)}</b>
+                    <PctBadge p={x.pct} goodWhenDown newLabel={t('cmpNew')} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 type P = 'week' | 'month' | 'year' | 'custom';
 
 function rangeFor(p: P, anchor: string, custom: { from: string; to: string }) {
@@ -223,6 +299,7 @@ function PeriodTab() {
         <>
           <MissingRatesNote currencies={r.summary.missingRates} />
           <SummaryCards s={r.summary} labels={[t('tx_INCOME'), t('tx_EXPENSE'), t('netLabel')]} extra={[{ label: t('countOps'), value: String(r.pnlCount), icon: Hash }]} />
+          <ComparisonCard r={r} />
           <Card>
             <CardHeader title={t('dynamics')} subtitle={`${t(`g_${r.granularity}`)} · ${c}`} />
             <div className="px-2 pb-4 pt-2"><IncomeExpenseBars series={r.series} currency={c} /></div>

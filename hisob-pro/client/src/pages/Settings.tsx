@@ -47,7 +47,7 @@ function ProfileCard() {
       <CardHeader title={t('profile')} icon={<UserIcon className="h-4 w-4" />} subtitle={user ? `${t('memberSince')} ${formatDate(user.createdAt)}` : undefined} />
       <form onSubmit={submit} className="grid gap-4 p-5 sm:grid-cols-2">
         <Field label={t('name')}><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
-        <Field label={t('email')}><Input value={user?.email ?? ''} disabled /></Field>
+        <Field label={user?.email ? t('email') : t('phone')}><Input value={user?.email ?? user?.phone ?? ''} disabled /></Field>
         <Field label={t('language')}>
           <Select value={language} onChange={(e) => setLanguage(e.target.value as Lang)}>
             <option value="tg">Тоҷикӣ</option>
@@ -254,6 +254,43 @@ function CategoriesCard() {
   );
 }
 
+/** Танҳо барои соҳиби платформа: сабти номи дигарон тавассути Telegram ё пӯшида */
+function RegistrationCard() {
+  const { t } = useI18n();
+  const toast = useToast();
+  const qc = useQueryClient();
+  const q = useQuery({
+    queryKey: ['registration-settings'],
+    queryFn: () => api.get<{ registration: 'telegram' | 'closed' }>('/auth/registration-settings'),
+  });
+  if (!q.data) return null;
+  const change = async (registration: 'telegram' | 'closed') => {
+    try {
+      await api.put('/auth/registration-settings', { registration });
+      await qc.invalidateQueries({ queryKey: ['registration-settings'] });
+      await qc.invalidateQueries({ queryKey: ['registration'] });
+      toast(t('saved'));
+    } catch (e) {
+      toast(e instanceof Error ? e.message : String(e), 'error');
+    }
+  };
+  return (
+    <Card>
+      <CardHeader title={t('regSettingsTitle')} subtitle={t('regSettingsHint')} icon={<UserIcon className="h-4 w-4" />} />
+      <div className="p-5">
+        <Segmented
+          value={q.data.registration}
+          onChange={change}
+          options={[
+            { value: 'telegram', label: t('regOpenTelegram') },
+            { value: 'closed', label: t('regClosedOpt') },
+          ]}
+        />
+      </div>
+    </Card>
+  );
+}
+
 interface TgSettings {
   enabled: boolean;
   botUsername: string | null;
@@ -385,6 +422,7 @@ function TelegramCard() {
 
 export default function SettingsPage() {
   const { t } = useI18n();
+  const { user } = useAuth();
   const { theme, setTheme } = useTheme();
   const location = useLocation();
   useEffect(() => {
@@ -411,6 +449,7 @@ export default function SettingsPage() {
           <PasswordCard />
         </div>
         <div className="space-y-6">
+          {user?.isOwner && <RegistrationCard />}
           <InstallCard />
           <TelegramCard />
           <RatesCard />

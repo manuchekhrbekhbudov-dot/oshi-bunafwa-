@@ -11,7 +11,7 @@ import {
   computeDay,
   createLinkCode,
   handleUpdate,
-  sendDailySummaries,
+  runScheduledJobs,
   telegramEnabled,
   webhookSecret,
 } from '../services/telegram/bot.js';
@@ -41,7 +41,7 @@ router.post(
 router.all(
   '/tick',
   asyncHandler(async (_req, res) => {
-    res.json(await sendDailySummaries());
+    res.json(await runScheduledJobs());
   }),
 );
 

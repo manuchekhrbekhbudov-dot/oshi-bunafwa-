@@ -5,15 +5,37 @@
 import crypto from 'node:crypto';
 import { prisma } from '../../lib/prisma.js';
 import { dec, money } from '../../lib/money.js';
-import { endOfDayExclusiveTz, shiftDay, startOfDayTz, todayKey, TZ } from '../../lib/dates.js';
+import type { Prisma } from '@prisma/client';
+import {
+  dayKey,
+  daysBetween,
+  endOfDayExclusiveTz,
+  previousRange,
+  shiftDay,
+  shiftMonth,
+  startOfDayTz,
+  todayKey,
+  TZ,
+  weekStart,
+} from '../../lib/dates.js';
 import { formatInTimeZone } from 'date-fns-tz';
 import { getUserContext } from '../context.js';
 import { loadLedgerRows } from '../ledger.js';
-import { categoryBreakdown, debtState, summarize, summarizeDebts, totalBalance } from '../calc.js';
+import { categoryBreakdown, categoryChanges, debtState, summarize, summarizeDebts, totalBalance } from '../calc.js';
+import { buildBackup } from '../backup.js';
 import { accountBalances } from '../ledger.js';
+import { detectImageMime, MAX_PHOTO_BYTES, purchasePhotos, savePhoto } from '../photos.js';
+import { attachPendingToChat, completeRegistrationFromContact } from '../registration.js';
 import {
   alertMessage,
+  comparisonBlock,
   dailyMessage,
+  dayLabel,
+  monthlyReportMessage,
+  reminderMessage,
+  weeklyMessage,
+  type PeriodCompare,
+  type ReminderItem,
   effectiveDailyLimit,
   esc,
   fmt,
@@ -30,63 +52,40 @@ import {
 
 /* ------------------------------ Telegram API ------------------------------ */
 
-export type TgSender = (method: string, body: Record<string, unknown>) => Promise<unknown>;
+import {
+  botUsername,
+  send,
+  sendAlbum,
+  sendDocument,
+  setTelegramSender,
+  setTelegramTransport,
+  telegramEnabled,
+  telegramToken,
+  tgCall,
+  tgDownloadFile,
+  webhookSecret,
+  type TgSender,
+} from './transport.js';
 
-export const telegramToken = () => process.env.TELEGRAM_BOT_TOKEN?.trim() || '';
-export const telegramEnabled = () => !!telegramToken();
-
-/** Сирри webhook аз токен ҳосил мешавад — Telegram онро дар header мефиристад */
-export const webhookSecret = () =>
-  crypto.createHash('sha256').update(`hisob-webhook:${telegramToken()}`).digest('hex').slice(0, 48);
-
-const realSender: TgSender = async (method, body) => {
-  const res = await fetch(`https://api.telegram.org/bot${telegramToken()}/${method}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const data = (await res.json().catch(() => ({}))) as { ok?: boolean; result?: unknown; description?: string };
-  if (!data.ok) throw new Error(`Telegram ${method}: ${data.description ?? res.status}`);
-  return data.result;
-};
-
-let sender: TgSender = realSender;
-/** Барои тестҳо: паёмҳо ба ҷои Telegram ба функсияи дигар мераванд */
-export function setTelegramSender(s: TgSender | null) {
-  sender = s ?? realSender;
-}
-
-let cachedBotUsername: string | null = null;
-export async function botUsername(): Promise<string | null> {
-  if (!telegramEnabled()) return null;
-  if (cachedBotUsername) return cachedBotUsername;
-  try {
-    const me = (await sender('getMe', {})) as { username?: string };
-    cachedBotUsername = me.username ?? null;
-  } catch {
-    return null;
-  }
-  return cachedBotUsername;
-}
-
-export async function send(chatId: string, text: string, extra: Record<string, unknown> = {}) {
-  return sender('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML', disable_web_page_preview: true, ...extra });
-}
+// Барои мувофиқат бо роутҳо ва тестҳои мавҷуда
+export { botUsername, send, setTelegramSender, setTelegramTransport, telegramEnabled, telegramToken, webhookSecret };
+export type { TgSender };
 
 /** Ҳангоми оғози сервер: webhook-ро ба суроғаи сайт насб мекунад */
 export async function setupWebhook(publicUrl: string) {
   if (!telegramEnabled() || !/^https:\/\//.test(publicUrl)) return false;
-  await sender('setWebhook', {
+  await tgCall('setWebhook', {
     url: `${publicUrl.replace(/\/$/, '')}/api/telegram/webhook`,
     secret_token: webhookSecret(),
     allowed_updates: ['message', 'callback_query'],
     drop_pending_updates: false,
   });
-  await sender('setMyCommands', {
+  await tgCall('setMyCommands', {
     commands: [
       { command: 'today', description: 'Ҳисоботи имрӯз / Отчёт за сегодня' },
       { command: 'month', description: 'Ҳисоботи моҳ / Отчёт за месяц' },
       { command: 'balance', description: 'Баланс' },
+      { command: 'photos', description: 'Суратҳои харид / Фото покупок' },
       { command: 'debts', description: 'Қарзҳо / Долги' },
       { command: 'limit', description: 'Меъёри рӯзона / Дневная норма' },
       { command: 'daily', description: 'Ҳисоботи 21:00 / Отчёт в 21:00' },
@@ -215,23 +214,219 @@ export async function sendDailySummaries(now = new Date()) {
       data: { lastDailyDay: day },
     });
     if (claimed.count !== 1) continue;
+    const lang = await userLang(link.userId);
     try {
       const d = await computeDay(link.userId, day);
-      await send(link.chatId, dailyMessage(d, await userLang(link.userId)));
+      await send(link.chatId, dailyMessage(d, lang));
       sent++;
     } catch (e) {
       // Агар фиристода нашуд — бори дигар кӯшиш карда шавад
       await prisma.telegramLink.update({ where: { id: link.id }, data: { lastDailyDay: link.lastDailyDay } });
       console.error('[telegram] daily failed', e);
+      continue;
+    }
+    // Суратҳои харидҳои рӯз — албом (хатогӣ ҳисоботро такрор намекунад)
+    await sendDayPhotos(link.chatId, link.userId, day, lang).catch((e) => console.error('[telegram] album failed', e));
+  }
+  return { sent };
+}
+
+/* ------------------- Ёдраскунӣ, ҳафта, моҳ, нусхаи эҳтиётӣ ------------------- */
+
+export const MORNING_HOUR = 9;
+const localHour = (now: Date) => Number(formatInTimeZone(now, TZ, 'H'));
+
+type ScheduleField = 'lastReminderDay' | 'lastWeeklyKey' | 'lastMonthlyKey' | 'lastBackupDay';
+
+/** Идемпотент: танҳо як даъват "соҳиб"-и кори имрӯза мешавад */
+async function claim(linkId: string, field: ScheduleField, key: string) {
+  const r = await prisma.telegramLink.updateMany({
+    where: { id: linkId, OR: [{ [field]: null }, { [field]: { not: key } }] } as Prisma.TelegramLinkWhereInput,
+    data: { [field]: key },
+  });
+  return r.count === 1;
+}
+
+/** Агар фиристодан нашуд — бори дигар кӯшиш карда шавад */
+async function release(linkId: string, field: ScheduleField, prev: string | null) {
+  await prisma.telegramLink.update({ where: { id: linkId }, data: { [field]: prev } });
+}
+
+function dueLinks(field: ScheduleField, key: string, onlyNotify = false) {
+  return prisma.telegramLink.findMany({
+    where: {
+      step: 'done',
+      ...(onlyNotify ? { notifyDaily: true } : {}),
+      OR: [{ [field]: null }, { [field]: { not: key } }],
+    } as Prisma.TelegramLinkWhereInput,
+  });
+}
+
+async function periodData(userId: string, from: string, to: string) {
+  const ctx = await getUserContext(userId);
+  const view = { base: ctx.base, rates: ctx.rates };
+  const rows = await loadLedgerRows(userId, startOfDayTz(from), endOfDayExclusiveTz(to));
+  return { summary: summarize(rows, view), cats: categoryBreakdown(rows, 'EXPENSE', view) };
+}
+
+/** Давра ва давраи қаблӣ (ҳамон рӯзҳои моҳи гузашта ё ҳамон шумораи рӯзҳо) */
+export async function comparePeriods(userId: string, from: string, to: string): Promise<PeriodCompare> {
+  const p = previousRange(from, to);
+  const [cur, prev] = await Promise.all([periodData(userId, from, to), periodData(userId, p.from, p.to)]);
+  return { cur, prev, changes: categoryChanges(cur.cats, prev.cats) };
+}
+
+/** Ёдраскунии қарзҳо (09:00): пагоҳ, имрӯз, муҳлатгузашта (рӯзи 1, баъд ҳар 7 рӯз) */
+export async function sendDebtReminders(now = new Date()) {
+  if (!telegramEnabled()) return { sent: 0 };
+  if (localHour(now) < MORNING_HOUR) return { sent: 0, waiting: true };
+  const today = todayKey(now);
+  const tomorrow = shiftDay(today, 1);
+  let sent = 0;
+  for (const link of await dueLinks('lastReminderDay', today)) {
+    const debts = await prisma.debt.findMany({ where: { userId: link.userId, dueDate: { not: null } }, include: { payments: true } });
+    const items: ReminderItem[] = [];
+    for (const d of debts) {
+      const st = debtState(d, d.payments, now);
+      if (st.status === 'PAID') continue;
+      const due = dayKey(d.dueDate!);
+      const base = { direction: d.direction, name: d.counterparty, amount: fmt(st.remaining, d.currency) };
+      if (due === tomorrow) items.push({ ...base, kind: 'tomorrow' });
+      else if (due === today) items.push({ ...base, kind: 'today' });
+      else if (due < today) {
+        const days = daysBetween(due, today).length - 1;
+        if (days === 1 || (days - 1) % 7 === 0) items.push({ ...base, kind: 'overdue', days });
+      }
+    }
+    if (!(await claim(link.id, 'lastReminderDay', today))) continue;
+    if (!items.length) continue;
+    try {
+      await send(link.chatId, reminderMessage(items, await userLang(link.userId)));
+      sent++;
+    } catch (e) {
+      await release(link.id, 'lastReminderDay', link.lastReminderDay);
+      console.error('[telegram] reminders failed', e);
     }
   }
   return { sent };
 }
 
+/** Ҳисоботи ҳафта: якшанбе баъд аз 21:00 (ё душанбе, агар сервер дер бедор шуда бошад) */
+export async function sendWeeklyReports(now = new Date()) {
+  if (!telegramEnabled()) return { sent: 0 };
+  const today = todayKey(now);
+  const dow = new Date(`${today}T12:00:00Z`).getUTCDay(); // 0 = якшанбе
+  let from: string;
+  if (dow === 0 && localHour(now) >= DAILY_HOUR) from = weekStart(today);
+  else if (dow === 1) from = weekStart(shiftDay(today, -1));
+  else return { sent: 0, waiting: true };
+  const to = shiftDay(from, 6);
+  let sent = 0;
+  for (const link of await dueLinks('lastWeeklyKey', from, true)) {
+    if (!(await claim(link.id, 'lastWeeklyKey', from))) continue;
+    try {
+      const d = await comparePeriods(link.userId, from, to);
+      await send(link.chatId, weeklyMessage(from, to, d, await userLang(link.userId)));
+      sent++;
+    } catch (e) {
+      await release(link.id, 'lastWeeklyKey', link.lastWeeklyKey);
+      console.error('[telegram] weekly failed', e);
+    }
+  }
+  return { sent };
+}
+
+/** Ҷамъбасти моҳи гузашта бо муқоиса: рӯзҳои 1–3-юми моҳ, баъд аз 09:00 */
+export async function sendMonthlyReports(now = new Date()) {
+  if (!telegramEnabled()) return { sent: 0 };
+  const today = todayKey(now);
+  if (Number(today.slice(8, 10)) > 3 || localHour(now) < MORNING_HOUR) return { sent: 0, waiting: true };
+  const month = shiftMonth(today.slice(0, 7), -1);
+  const from = `${month}-01`;
+  const to = shiftDay(`${today.slice(0, 7)}-01`, -1);
+  let sent = 0;
+  for (const link of await dueLinks('lastMonthlyKey', month, true)) {
+    if (!(await claim(link.id, 'lastMonthlyKey', month))) continue;
+    try {
+      const d = await comparePeriods(link.userId, from, to);
+      await send(link.chatId, monthlyReportMessage(month, d, await userLang(link.userId)));
+      sent++;
+    } catch (e) {
+      await release(link.id, 'lastMonthlyKey', link.lastMonthlyKey);
+      console.error('[telegram] monthly failed', e);
+    }
+  }
+  return { sent };
+}
+
+/** Нусхаи эҳтиётии Excel ҳар бегоҳ (бе садо) — агар маълумот бошад */
+export async function sendBackups(now = new Date()) {
+  if (!telegramEnabled()) return { sent: 0 };
+  if (localHour(now) < DAILY_HOUR) return { sent: 0, waiting: true };
+  const today = todayKey(now);
+  let sent = 0;
+  for (const link of await dueLinks('lastBackupDay', today)) {
+    if (!(await claim(link.id, 'lastBackupDay', today))) continue;
+    try {
+      const b = await buildBackup(link.userId);
+      if (!b.counts.transactions) continue;
+      const lang = await userLang(link.userId);
+      await sendDocument(
+        link.chatId,
+        {
+          filename: `hisob-pro-backup-${today}.xlsx`,
+          mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          data: b.buffer,
+        },
+        T[lang].backupCaption(dayLabel(today, lang), b.counts.transactions),
+        true,
+      );
+      sent++;
+    } catch (e) {
+      await release(link.id, 'lastBackupDay', link.lastBackupDay);
+      console.error('[telegram] backup failed', e);
+    }
+  }
+  return { sent };
+}
+
+/** Ҳамаи корҳои ҷадвалӣ — бехатар аст, ки бисёр маротиба даъват шавад */
+export async function runScheduledJobs(now = new Date()) {
+  const safe = async <R>(name: string, fn: () => Promise<R>) => {
+    try {
+      return await fn();
+    } catch (e) {
+      console.error(`[telegram] ${name} failed`, e);
+      return { sent: 0, error: true };
+    }
+  };
+  return {
+    reminders: await safe('reminders', () => sendDebtReminders(now)),
+    monthly: await safe('monthly', () => sendMonthlyReports(now)),
+    daily: await safe('daily', () => sendDailySummaries(now)),
+    weekly: await safe('weekly', () => sendWeeklyReports(now)),
+    backups: await safe('backups', () => sendBackups(now)),
+  };
+}
+
 /* ------------------------------ Қабули паёмҳо ------------------------------ */
 
+interface TgPhotoSize {
+  file_id: string;
+  width: number;
+  height: number;
+  file_size?: number;
+}
+
 interface TgUpdate {
-  message?: { text?: string; chat: { id: number; type: string }; from?: { username?: string } };
+  message?: {
+    text?: string;
+    caption?: string;
+    photo?: TgPhotoSize[];
+    contact?: { phone_number: string; user_id?: number; first_name?: string };
+    chat: { id: number; type: string };
+    from?: { id?: number; username?: string; first_name?: string };
+  };
   callback_query?: { id: string; data?: string; message?: { chat: { id: number; type: string } }; from?: { username?: string } };
 }
 
@@ -241,13 +436,24 @@ function sourceKeyboard(lang: Lang) {
   return { inline_keyboard: [[b('SALARY'), b('BUSINESS')], [b('TRADE'), b('SERVICES')], [b('OTHER')]] };
 }
 
+/** Тугмаи «📱 Фиристодани рақам» — Telegram рақами худи корбарро мефиристад */
+const contactKeyboard = (lang: Lang) => ({
+  keyboard: [[{ text: T[lang].regContactButton, request_contact: true }]],
+  resize_keyboard: true,
+  one_time_keyboard: true,
+});
+
 const skipKeyboard = (lang: Lang) => ({ inline_keyboard: [[{ text: T[lang].skip, callback_data: 'income:skip' }]] });
 
 /** Менюи доимӣ дар поёни чат */
 export function menuKeyboard(lang: Lang) {
   const m = T[lang].menu;
   return {
-    keyboard: [[{ text: m.today }, { text: m.month }], [{ text: m.balance }, { text: m.debts }], [{ text: m.help }]],
+    keyboard: [
+      [{ text: m.today }, { text: m.month }],
+      [{ text: m.balance }, { text: m.debts }],
+      [{ text: m.photos }, { text: m.help }],
+    ],
     resize_keyboard: true,
     is_persistent: true,
     input_field_placeholder: lang === 'ru' ? '50 еда · +3000 зарплата' : '50 хӯрок · +3000 маош',
@@ -263,6 +469,7 @@ function menuCommand(text: string): string | null {
     if (text === m.balance) return 'balance';
     if (text === m.debts) return 'debts';
     if (text === m.help) return 'help';
+    if (text === m.photos) return 'photos';
   }
   return null;
 }
@@ -320,7 +527,34 @@ export async function debtsMessage(userId: string, lang: Lang) {
 }
 
 /** Сабти даромад/хароҷот аз паёми "50 хӯрок" */
-async function quickAdd(chatId: string, userId: string, lang: Lang, entry: { type: 'INCOME' | 'EXPENSE'; amount: string; text: string }) {
+/** Суратҳои харидҳои рӯз ба Telegram (албом). Шумораи суратҳоро бармегардонад. */
+export async function sendDayPhotos(chatId: string, userId: string, day: string, lang: Lang) {
+  const photos = await purchasePhotos(userId, startOfDayTz(day), endOfDayExclusiveTz(day));
+  if (!photos.length) return 0;
+  await send(chatId, T[lang].photosTitle(photos.length, dayLabel(day, lang)));
+  await sendAlbum(
+    chatId,
+    photos.map((p) => ({
+      caption: `${p.transaction.category?.name ?? '—'} — ${fmt(p.transaction.amount, p.transaction.currency)}${
+        p.transaction.purpose ? ` · ${p.transaction.purpose}` : ''
+      }`,
+      fileId: p.telegramFileId,
+      data: Buffer.from(p.data),
+      mime: p.mime,
+    })),
+  );
+  return photos.length;
+}
+
+type QuickPhoto = { data: Buffer; mime: string; fileId: string | null };
+
+async function quickAdd(
+  chatId: string,
+  userId: string,
+  lang: Lang,
+  entry: { type: 'INCOME' | 'EXPENSE'; amount: string; text: string },
+  photo?: QuickPhoto,
+) {
   const t = T[lang];
   const ctx = await getUserContext(userId);
   const accounts = await prisma.account.findMany({ where: { userId, archived: false }, orderBy: { createdAt: 'asc' } });
@@ -347,7 +581,13 @@ async function quickAdd(chatId: string, userId: string, lang: Lang, entry: { typ
       note: 'Telegram',
     },
   });
-  await send(chatId, t.added(entry.type, fmt(entry.amount, account.currency), category?.name ?? '—', account.name, entry.text), {
+  let photoSaved = false;
+  if (photo) {
+    await savePhoto(userId, tx.id, photo, photo.fileId);
+    photoSaved = true;
+  }
+  const added = t.added(entry.type, fmt(entry.amount, account.currency), category?.name ?? '—', account.name, entry.text);
+  await send(chatId, photoSaved ? `${added}\n${t.photoSaved}` : added, {
     reply_markup: { inline_keyboard: [[{ text: t.undo, callback_data: `undo:${tx.id}` }]] },
   });
   if (entry.type === 'EXPENSE') await checkSpendingAlert(userId).catch((e) => console.error('[telegram] alert', e));
@@ -357,7 +597,7 @@ export async function handleUpdate(update: TgUpdate) {
   // Callback (тугмаҳо)
   if (update.callback_query) {
     const cq = update.callback_query;
-    await sender('answerCallbackQuery', { callback_query_id: cq.id }).catch(() => undefined);
+    await tgCall('answerCallbackQuery', { callback_query_id: cq.id }).catch(() => undefined);
     const chat = cq.message?.chat;
     if (!chat || chat.type !== 'private') return;
     const chatId = String(chat.id);
@@ -381,13 +621,68 @@ export async function handleUpdate(update: TgUpdate) {
   }
 
   const msg = update.message;
-  if (!msg || !msg.text) return;
+  if (!msg) return;
   // Маълумоти молиявӣ танҳо дар чати шахсӣ — ҳеҷ гоҳ дар гурӯҳҳо
   if (msg.chat.type !== 'private') return;
   const chatId = String(msg.chat.id);
+
+  // 📱 Контакт — тасдиқи рақам барои сабти ном
+  if (msg.contact) {
+    const r = await completeRegistrationFromContact(chatId, String(msg.from?.id ?? ''), msg.contact, msg.from?.username ?? null);
+    if (r.status === 'no_pending') return send(chatId, T.tg.notLinked, { reply_markup: { remove_keyboard: true } });
+    const t = T[r.language];
+    if (r.status === 'not_own_contact') return send(chatId, t.regNotOwn, { reply_markup: contactKeyboard(r.language) });
+    if (r.status === 'done') {
+      await send(chatId, t.regDone(r.name), { reply_markup: { remove_keyboard: true } });
+      await send(chatId, t.askSource, { reply_markup: sourceKeyboard(r.language) });
+      return;
+    }
+    const errorText = {
+      bad_phone: t.regBadPhone,
+      phone_taken: t.regPhoneTaken,
+      telegram_taken: t.regTelegramTaken,
+      email_taken: t.regEmailTaken,
+      closed: t.regClosed,
+    }[r.status];
+    return send(chatId, errorText, { reply_markup: { remove_keyboard: true } });
+  }
+
+  // 📸 Сурат бо навиштаи "50 нон" → хароҷот бо сурат
+  if (msg.photo?.length) {
+    const link = await prisma.telegramLink.findUnique({ where: { chatId } });
+    if (!link) return send(chatId, T.tg.notLinked);
+    const lang = await userLang(link.userId);
+    const entry = link.step === 'done' ? parseQuickEntry(msg.caption ?? '') : null;
+    if (!entry) return send(chatId, T[lang].photoHint);
+    // Калонтарин андоза (Telegram суратро то ~1280px фишурда медиҳад)
+    const best =
+      [...msg.photo]
+        .filter((p) => (p.file_size ?? 0) <= MAX_PHOTO_BYTES)
+        .sort((a, b) => b.width * b.height - a.width * a.height)[0] ?? msg.photo[0];
+    let photo: QuickPhoto | undefined;
+    try {
+      const data = await tgDownloadFile(best.file_id);
+      const mime = detectImageMime(data);
+      if (mime) photo = { data, mime, fileId: best.file_id };
+    } catch (e) {
+      console.error('[telegram] photo download failed', e);
+    }
+    return quickAdd(chatId, link.userId, lang, entry, photo);
+  }
+
+  if (!msg.text) return;
   const text = msg.text.trim();
   const [cmdRaw, ...args] = text.split(/\s+/);
   const cmd = cmdRaw.startsWith('/') ? cmdRaw.slice(1).split('@')[0].toLowerCase() : menuCommand(text) ?? '';
+
+  // /start reg_CODE — сабти ном тавассути Telegram: рақамро мепурсем
+  if (cmd === 'start' && args[0]?.startsWith('reg_')) {
+    const r = await attachPendingToChat(args[0].slice(4), chatId, String(msg.from?.id ?? ''));
+    if (r.status === 'expired') return send(chatId, T.tg.regExpired);
+    const t = T[r.language];
+    if (r.status === 'telegram_taken') return send(chatId, t.regTelegramTaken);
+    return send(chatId, t.regAskContact, { reply_markup: contactKeyboard(r.language) });
+  }
 
   // /start CODE — пайвастшавӣ
   if (cmd === 'start' && args[0]) {
@@ -434,6 +729,11 @@ export async function handleUpdate(update: TgUpdate) {
       return send(chatId, t.help, { reply_markup: menuKeyboard(lang) });
     case 'balance':
       return send(chatId, await balanceMessage(link.userId, lang));
+    case 'photos': {
+      const n = await sendDayPhotos(chatId, link.userId, todayKey(), lang);
+      if (!n) return send(chatId, t.photosNone);
+      return;
+    }
     case 'debts':
       return send(chatId, await debtsMessage(link.userId, lang));
     case 'today': {
@@ -442,7 +742,15 @@ export async function handleUpdate(update: TgUpdate) {
     }
     case 'month': {
       const d = await computeDay(link.userId, todayKey());
-      return send(chatId, monthMessage(d.day.slice(0, 7), d.month, d.monthExpenseByCategory, lang));
+      const cmp = await comparePeriods(link.userId, `${d.day.slice(0, 7)}-01`, d.day);
+      return send(
+        chatId,
+        [
+          monthMessage(d.day.slice(0, 7), d.month, d.monthExpenseByCategory, lang),
+          '',
+          ...comparisonBlock(cmp.cur.summary, cmp.prev.summary, cmp.changes, t.vsSameDays, t.periodMonth, lang),
+        ].join('\n'),
+      );
     }
     case 'limit': {
       if (!args[0]) {

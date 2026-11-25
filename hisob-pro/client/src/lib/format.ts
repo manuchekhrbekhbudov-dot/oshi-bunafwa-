@@ -61,3 +61,14 @@ export function validAmount(input: string): boolean {
 export function normalizeAmount(input: string): string {
   return input.trim().replace(/\s+/g, '').replace(',', '.');
 }
+
+/** Фоизи тағйир (бутун) ё null, агар давраи қаблӣ 0 бошад */
+export function pctChange(cur: string, prev: string): number | null {
+  try {
+    const p = new Decimal(prev);
+    if (p.isZero()) return null;
+    return new Decimal(cur).minus(p).div(p).times(100).toDecimalPlaces(0).toNumber();
+  } catch {
+    return null;
+  }
+}

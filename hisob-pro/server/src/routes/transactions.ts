@@ -17,6 +17,7 @@ import { ownAccount, ownCategory } from '../services/ownership.js';
 import { serializeTx, txInclude } from '../services/serialize.js';
 import { parseAmount } from '../lib/money.js';
 import { checkSpendingAlert } from '../services/telegram/bot.js';
+import { decodePhoto, savePhoto } from '../services/photos.js';
 
 /** Огоҳии Telegram дар замина — ҳеҷ гоҳ ҷавобро суст ё вайрон намекунад */
 function alertLater(userId: string) {
@@ -211,6 +212,51 @@ router.patch(
     });
     if (t.type === 'EXPENSE') alertLater(userId);
     res.json({ transaction: serializeTx(t) });
+  }),
+);
+
+/* --------------------------- Сурати харид --------------------------- */
+
+async function ownPnlTx(userId: string, id: string) {
+  const t = await prisma.transaction.findFirst({ where: { id, userId }, select: { id: true, type: true } });
+  if (!t) throw notFound('Амалиёт ёфт нашуд');
+  if (t.type !== 'INCOME' && t.type !== 'EXPENSE') throw conflict('NOT_EDITABLE', 'Сурат танҳо барои даромад ва хароҷот');
+  return t;
+}
+
+router.get(
+  '/:id/photo',
+  asyncHandler(async (req, res) => {
+    const photo = await prisma.transactionPhoto.findFirst({
+      where: { transactionId: req.params.id, userId: uid(req) },
+      select: { id: true, mime: true, data: true },
+    });
+    if (!photo) throw notFound('Сурат нест');
+    res.set('Content-Type', photo.mime);
+    res.set('Cache-Control', 'private, max-age=86400');
+    res.set('ETag', `"${photo.id}"`);
+    res.send(Buffer.from(photo.data));
+  }),
+);
+
+router.put(
+  '/:id/photo',
+  asyncHandler(async (req, res) => {
+    const userId = uid(req);
+    const t = await ownPnlTx(userId, req.params.id);
+    const { data } = parse(z.object({ data: z.string().min(16).max(8_000_000) }), req.body);
+    const saved = await savePhoto(userId, t.id, decodePhoto(data));
+    res.json({ ok: true, size: saved.size });
+  }),
+);
+
+router.delete(
+  '/:id/photo',
+  asyncHandler(async (req, res) => {
+    const userId = uid(req);
+    await ownPnlTx(userId, req.params.id);
+    await prisma.transactionPhoto.deleteMany({ where: { transactionId: req.params.id, userId } });
+    res.json({ ok: true });
   }),
 );
 

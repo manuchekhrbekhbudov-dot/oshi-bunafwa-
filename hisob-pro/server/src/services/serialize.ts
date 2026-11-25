@@ -25,6 +25,7 @@ type TxWithRels = Transaction & {
   category?: { id: string; name: string; color: string; icon: string } | null;
   debt?: { id: string; counterparty: string; direction: string } | null;
   transfer?: { fromAccountId: string; toAccountId: string } | null;
+  photo?: { id: string } | null;
 };
 
 export function serializeTx(t: TxWithRels) {
@@ -48,6 +49,7 @@ export function serializeTx(t: TxWithRels) {
     debtId: t.debtId,
     debtPaymentId: t.debtPaymentId,
     debt: t.debt ?? null,
+    hasPhoto: !!t.photo,
     createdAt: t.createdAt,
     updatedAt: t.updatedAt,
   };
@@ -57,4 +59,5 @@ export const txInclude = {
   account: { select: { id: true, name: true, type: true, color: true } },
   category: { select: { id: true, name: true, color: true, icon: true } },
   debt: { select: { id: true, counterparty: true, direction: true } },
+  photo: { select: { id: true } }, // танҳо мавҷудият — байтҳои сурат бор карда намешаванд
 } as const;

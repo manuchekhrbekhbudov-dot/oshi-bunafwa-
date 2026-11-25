@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import clsx from 'clsx';
-import { Banknote, Building2, CreditCard } from 'lucide-react';
+import { Banknote, Building2, Camera, CreditCard, X } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Field, Input, Select, Textarea } from '../ui/Field';
@@ -9,6 +9,7 @@ import { useAccounts, useCategories, useFinanceMutation } from '../../hooks/quer
 import { api } from '../../lib/api';
 import { toLocalInput } from '../../lib/dates';
 import { CURRENCY_SYMBOL, normalizeAmount, validAmount } from '../../lib/format';
+import { compressImage, photoUrl } from '../../lib/image';
 import type { AccountType, Currency, PaymentMethod, Transaction } from '../../lib/types';
 import { useFormErrors } from './useForm';
 
@@ -40,11 +41,17 @@ export function TransactionFormModal({
   const [text, setText] = useState('');
   const [pm, setPm] = useState<PaymentMethod>('CASH');
   const [note, setNote] = useState('');
+  // Сурат: newPhoto — сурати нав (dataURL); removePhoto — сурати мавҷуда нест карда шавад
+  const [newPhoto, setNewPhoto] = useState<string | null>(null);
+  const [removePhoto, setRemovePhoto] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   // Ҳангоми кушодан ҳамаи майдонҳо якбора гузошта мешаванд (ҳисоби амалиёти таҳриршаванда иваз намешавад)
   useEffect(() => {
     if (!open) return;
     setErrors({});
+    setNewPhoto(null);
+    setRemovePhoto(false);
     if (initial) {
       setAmount(initial.amount);
       setCurrency(initial.currency);
@@ -102,8 +109,28 @@ export function TransactionFormModal({
       paymentMethod: pm,
       note: note || null,
     };
-    return initial ? api.patch(`/transactions/${initial.id}`, body) : api.post('/transactions', { type: kind, ...body });
+    const res = await (initial
+      ? api.patch<{ transaction: Transaction }>(`/transactions/${initial.id}`, body)
+      : api.post<{ transaction: Transaction }>('/transactions', { type: kind, ...body }));
+    const id = res.transaction.id;
+    if (newPhoto) await api.put(`/transactions/${id}/photo`, { data: newPhoto });
+    else if (removePhoto && initial?.hasPhoto) await api.del(`/transactions/${id}/photo`);
+    return res;
   });
+
+  const pickPhoto = async (file: File | undefined) => {
+    if (!file) return;
+    setPhotoBusy(true);
+    try {
+      setNewPhoto(await compressImage(file));
+      setRemovePhoto(false);
+    } catch {
+      toast(t('photoError'), 'error');
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+  const preview = newPhoto ?? (initial?.hasPhoto && !removePhoto ? photoUrl(initial.id, initial.updatedAt) : null);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -140,7 +167,7 @@ export function TransactionFormModal({
           <Button variant="secondary" type="button" onClick={onClose}>
             {t('cancel')}
           </Button>
-          <Button form="tx-form" type="submit" loading={mutation.isPending} variant={isIncome ? 'success' : 'primary'}>
+          <Button form="tx-form" type="submit" loading={mutation.isPending} disabled={photoBusy} variant={isIncome ? 'success' : 'primary'}>
             {t('save')}
           </Button>
         </>
@@ -217,6 +244,45 @@ export function TransactionFormModal({
         </Field>
         <Field label={`${t('note')} (${t('optional')})`} error={errors.note} className="sm:col-span-2">
           <Textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} rows={2} />
+        </Field>
+        <Field label={t('photo')} hint={t('photoHint')} className="sm:col-span-2">
+          {preview ? (
+            <div className="relative inline-block">
+              <img src={preview} alt={t('photo')} className="h-32 max-w-full rounded-xl border border-slate-200 object-cover dark:border-white/10" />
+              <button
+                type="button"
+                onClick={() => {
+                  setNewPhoto(null);
+                  setRemovePhoto(true);
+                }}
+                className="absolute -right-2 -top-2 grid h-7 w-7 place-items-center rounded-full bg-rose-600 text-white shadow-lg"
+                aria-label={t('removePhoto')}
+                title={t('removePhoto')}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <label
+              className={clsx(
+                'flex h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 text-sm font-semibold text-slate-500 transition hover:border-brand-500 hover:text-brand-500 dark:border-white/15',
+                photoBusy && 'pointer-events-none opacity-60',
+              )}
+            >
+              <Camera className="h-5 w-5" />
+              {photoBusy ? t('loading') : t('addPhoto')}
+              <input
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                data-testid="photo-input"
+                onChange={(e) => {
+                  void pickPhoto(e.target.files?.[0]);
+                  e.target.value = '';
+                }}
+              />
+            </label>
+          )}
         </Field>
       </form>
     </Modal>

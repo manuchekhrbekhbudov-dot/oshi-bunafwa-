@@ -27,7 +27,10 @@ export function createApp() {
 
   app.use(helmet({ contentSecurityPolicy: config.isProd ? undefined : false }));
   app.use(cors({ origin: allowedOrigins, credentials: true }));
-  app.use(express.json({ limit: '200kb' }));
+  // Суратҳо (base64) калонтаранд — танҳо барои роути сурат ҳудуди 8 MB
+  const jsonSmall = express.json({ limit: '200kb' });
+  const jsonPhoto = express.json({ limit: '8mb' });
+  app.use((req, res, next) => (/^\/api\/transactions\/[^/]+\/photo$/.test(req.path) ? jsonPhoto : jsonSmall)(req, res, next));
   app.use(cookieParser());
 
   // Ҷамъиятӣ ва бехатар: саҳифаи github.io месанҷад, ки сервер бедор аст (бе маълумоти корбар)

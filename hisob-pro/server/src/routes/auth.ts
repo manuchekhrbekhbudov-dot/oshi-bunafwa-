@@ -19,6 +19,18 @@ import {
 import { createUserDefaults } from '../services/defaults.js';
 import { sendMail } from '../services/mail.js';
 import { currencySchema } from '../lib/validators.js';
+import {
+  createPendingRegistration,
+  findPendingByPollToken,
+  normalizePhone,
+  ownerId,
+  PENDING_TTL_MIN,
+  registrationPolicy,
+  setSetting,
+  getSetting,
+} from '../services/registration.js';
+import { botUsername, send } from '../services/telegram/transport.js';
+import { T } from '../services/telegram/insights.js';
 
 const router = Router();
 
@@ -36,54 +48,66 @@ const passwordSchema = z
   .refine(passwordPolicy, 'Парол бояд ҳадди ақал 8 аломат, ҳарф ва рақам дошта бошад');
 
 const emailSchema = z.string().trim().toLowerCase().email('Email нодуруст').max(200);
+const nameSchema = z.string().trim().min(2, 'Ном ҳадди ақал 2 аломат').max(100);
 
 const publicUser = {
   id: true,
   email: true,
+  phone: true,
   name: true,
   language: true,
   baseCurrency: true,
   createdAt: true,
 } as const;
 
-// Hash барои муқоисаи "бекора" — то вақти ҷавоб нишон надиҳад, ки email вуҷуд дорад ё не
+// Hash барои муқоисаи "бекора" — то вақти ҷавоб нишон надиҳад, ки корбар вуҷуд дорад ё не
 let dummyHash: Promise<string> | null = null;
 const getDummyHash = () => (dummyHash ??= hashPassword(randomToken()));
 
 const registrationClosed = () =>
   new HttpError(403, 'REGISTRATION_CLOSED', 'Сабти ном пӯшида аст. Ин платформаи шахсӣ аст.');
+const telegramRequired = () =>
+  new HttpError(403, 'TELEGRAM_REQUIRED', 'Сабти ном танҳо тавассути рақами Telegram мумкин аст.');
 
-/** Оё ҳоло сабти ном мумкин аст? (барои пинҳон кардани тугма дар интерфейс) */
+/** Email ё рақами телефон → корбар */
+async function findUserByLogin(login: string) {
+  const v = login.trim().toLowerCase();
+  if (v.includes('@')) return prisma.user.findUnique({ where: { email: v } });
+  const phone = normalizePhone(v);
+  return phone ? prisma.user.findUnique({ where: { phone } }) : null;
+}
+
+/** Кадом роҳҳои сабти ном ҳоло кушодаанд (барои интерфейс) */
 router.get(
   '/registration',
   asyncHandler(async (_req, res) => {
-    const mode = registrationMode();
-    const open = mode === 'open' || (mode === 'first-user' && (await prisma.user.count()) === 0);
-    res.json({ open });
+    const policy = await registrationPolicy();
+    res.json({
+      open: policy.email || policy.telegram,
+      email: policy.email,
+      telegram: policy.telegram,
+      botUsername: policy.telegram ? await botUsername() : null,
+    });
   }),
 );
 
+/** Сабти ном бо email — танҳо корбари аввал (соҳиб) ё дар реҷаи open */
 router.post(
   '/register',
   authLimiter,
   asyncHandler(async (req, res) => {
-    const mode = registrationMode();
-    if (mode === 'closed') throw registrationClosed();
+    const policy = await registrationPolicy();
+    if (!policy.email) throw policy.telegram ? telegramRequired() : registrationClosed();
     const body = parse(
-      z.object({
-        name: z.string().trim().min(2, 'Ном ҳадди ақал 2 аломат').max(100),
-        email: emailSchema,
-        password: passwordSchema,
-        language: z.enum(['tg', 'ru']).optional(),
-      }),
+      z.object({ name: nameSchema, email: emailSchema, password: passwordSchema, language: z.enum(['tg', 'ru']).optional() }),
       req.body,
     );
     const passwordHash = await hashPassword(body.password);
     const user = await prisma.$transaction(async (tx) => {
-      if (mode === 'first-user') {
+      if (registrationMode() === 'first-user') {
         // Қулф: ду дархости ҳамзамон наметавонанд ҳарду "аввалин" шаванд
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(724001)`;
-        if ((await tx.user.count()) > 0) throw registrationClosed();
+        if ((await tx.user.count()) > 0) throw telegramRequired();
       }
       const exists = await tx.user.findUnique({ where: { email: body.email } });
       if (exists) throw conflict('EMAIL_TAKEN', 'Ин email аллакай сабт шудааст');
@@ -100,26 +124,77 @@ router.post(
   }),
 );
 
+/** Оғози сабти ном тавассути Telegram: ном + парол (+ email ихтиёрӣ) → линки бот */
+router.post(
+  '/register/telegram',
+  authLimiter,
+  asyncHandler(async (req, res) => {
+    const policy = await registrationPolicy();
+    if (!policy.telegram) throw registrationClosed();
+    const body = parse(
+      z.object({
+        name: nameSchema,
+        email: z.union([emailSchema, z.literal(''), z.null()]).optional(),
+        password: passwordSchema,
+        language: z.enum(['tg', 'ru']).optional(),
+      }),
+      req.body,
+    );
+    const email = body.email || null;
+    if (email && (await prisma.user.findUnique({ where: { email }, select: { id: true } }))) {
+      throw conflict('EMAIL_TAKEN', 'Ин email аллакай сабт шудааст');
+    }
+    const bot = await botUsername();
+    if (!bot) throw new HttpError(502, 'TELEGRAM_UNAVAILABLE', 'Бо Telegram пайваст нашуд. Баъдтар кӯшиш кунед');
+    const { code, pollToken } = await createPendingRegistration({
+      name: body.name,
+      email,
+      passwordHash: await hashPassword(body.password),
+      language: body.language ?? 'tg',
+    });
+    res.status(201).json({ url: `https://t.me/${bot}?start=reg_${code}`, pollToken, expiresInMinutes: PENDING_TTL_MIN });
+  }),
+);
+
+/** Браузер ҳар 2 сония месанҷад: оё рақам дар Telegram тасдиқ шуд? */
+router.get(
+  '/register/telegram/status',
+  asyncHandler(async (req, res) => {
+    const token = parse(z.string().min(10).max(200), req.query.token);
+    const p = await findPendingByPollToken(token);
+    if (!p || (p.expiresAt < new Date() && !p.completedUserId)) return res.status(410).json({ status: 'expired' });
+    if (p.error) return res.json({ status: 'error', code: p.error });
+    if (!p.completedUserId) return res.json({ status: 'waiting', chatOpened: !!p.chatId });
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: p.completedUserId }, select: publicUser });
+    // Токен як маротиба — сессия танҳо барои ҳамон браузере, ки сабти номро оғоз кард
+    await prisma.pendingRegistration.delete({ where: { id: p.id } });
+    const s = await createSession(user.id, { userAgent: req.get('user-agent'), ip: req.ip });
+    setSessionCookie(res, s.token, s.expiresAt);
+    res.json({ status: 'done', user });
+  }),
+);
+
+/** Воридшавӣ: email ё рақами телефон + парол */
 router.post(
   '/login',
   authLimiter,
   asyncHandler(async (req, res) => {
-    const body = parse(z.object({ email: emailSchema, password: z.string().min(1).max(128) }), req.body);
-    const user = await prisma.user.findUnique({ where: { email: body.email } });
+    const body = parse(
+      z
+        .object({ login: z.string().trim().max(200).optional(), email: z.string().trim().max(200).optional(), password: z.string().min(1).max(128) })
+        .refine((b) => !!(b.login || b.email), { message: 'Email ё рақамро ворид кунед', path: ['login'] }),
+      req.body,
+    );
+    const user = await findUserByLogin((body.login || body.email)!);
     const ok = await verifyPassword(body.password, user?.passwordHash ?? (await getDummyHash()));
-    if (!user || !ok) throw unauthorized('Email ё парол нодуруст аст');
+    if (!user || !ok) throw unauthorized('Рақам/email ё парол нодуруст аст');
     const s = await createSession(user.id, { userAgent: req.get('user-agent'), ip: req.ip });
     setSessionCookie(res, s.token, s.expiresAt);
-    res.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        language: user.language,
-        baseCurrency: user.baseCurrency,
-        createdAt: user.createdAt,
-      },
-    });
+    const { passwordHash: _ph, telegramUserId: _tg, updatedAt: _u, ...rest } = user;
+    void _ph;
+    void _tg;
+    void _u;
+    res.json({ user: rest });
   }),
 );
 
@@ -135,12 +210,19 @@ router.post(
   }),
 );
 
+/** Фаромӯш кардани парол: линк ба Telegram (агар пайваст бошад), вагарна ба email */
 router.post(
   '/forgot-password',
   authLimiter,
   asyncHandler(async (req, res) => {
-    const { email } = parse(z.object({ email: emailSchema }), req.body);
-    const user = await prisma.user.findUnique({ where: { email } });
+    const body = parse(
+      z
+        .object({ login: z.string().trim().max(200).optional(), email: z.string().trim().max(200).optional() })
+        .refine((b) => !!(b.login || b.email), { message: 'Email ё рақамро ворид кунед', path: ['login'] }),
+      req.body,
+    );
+    const user = await findUserByLogin((body.login || body.email)!);
+    let via: 'telegram' | 'email' | null = null;
     if (user) {
       const token = randomToken();
       await prisma.passwordResetToken.deleteMany({ where: { userId: user.id, usedAt: null } });
@@ -148,13 +230,23 @@ router.post(
         data: { userId: user.id, tokenHash: hashToken(token), expiresAt: new Date(Date.now() + 60 * 60_000) },
       });
       const link = `${config.appUrl}/reset-password?token=${encodeURIComponent(token)}`;
-      await sendMail(
-        user.email,
-        'HISOB PRO — барқарорсозии парол / восстановление пароля',
-        `Салом, ${user.name}!\n\nБарои гузоштани пароли нав ба ин линк гузаред (1 соат эътибор дорад):\n${link}\n\nАгар шумо дархост накарда бошед, ин паёмро нодида гиред.`,
-      );
+      const tg = await prisma.telegramLink.findUnique({ where: { userId: user.id }, select: { chatId: true } });
+      if (tg) {
+        await send(tg.chatId, T[user.language].resetLink(link)).then(
+          () => (via = 'telegram'),
+          (e) => console.error('[auth] reset via telegram failed', e),
+        );
+      }
+      if (!via && user.email) {
+        await sendMail(
+          user.email,
+          'HISOB PRO — барқарорсозии парол / восстановление пароля',
+          `Салом, ${user.name}!\n\nБарои гузоштани пароли нав ба ин линк гузаред (1 соат эътибор дорад):\n${link}\n\nАгар шумо дархост накарда бошед, ин паёмро нодида гиред.`,
+        );
+        via = 'email';
+      }
     }
-    // Ҳамеша ҳамон ҷавоб — то маълум нашавад, ки email сабт шудааст ё не
+    // Ҳамеша ҳамон ҷавоб — то маълум нашавад, ки корбар вуҷуд дорад ё не
     res.json({ ok: true });
   }),
 );
@@ -186,7 +278,28 @@ router.get(
   asyncHandler(async (req, res) => {
     const user = await prisma.user.findUnique({ where: { id: uid(req) }, select: publicUser });
     if (!user) throw unauthorized();
-    res.json({ user });
+    res.json({ user: { ...user, isOwner: (await ownerId()) === user.id } });
+  }),
+);
+
+/** Соҳиби платформа сабти номи дигаронро идора мекунад: тавассути Telegram ё пӯшида */
+router.get(
+  '/registration-settings',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if ((await ownerId()) !== uid(req)) throw new HttpError(403, 'FORBIDDEN', 'Танҳо соҳиби платформа');
+    res.json({ registration: (await getSetting('registration')) ?? 'telegram', policy: await registrationPolicy() });
+  }),
+);
+
+router.put(
+  '/registration-settings',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if ((await ownerId()) !== uid(req)) throw new HttpError(403, 'FORBIDDEN', 'Танҳо соҳиби платформа');
+    const { registration } = parse(z.object({ registration: z.enum(['telegram', 'closed']) }), req.body);
+    await setSetting('registration', registration);
+    res.json({ registration, policy: await registrationPolicy() });
   }),
 );
 
