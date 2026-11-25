@@ -553,7 +553,22 @@ export function PlansWidget() {
   const { act, busy } = usePayRecurring();
   const soon = (rec.data ?? []).filter((r) => r.active && (r.status === 'due' || r.status === 'overdue' || (r.status === 'upcoming' && r.daysUntil <= 7)));
   const activeGoals = (goals.data ?? []).filter((g) => !g.achieved).slice(0, 3);
-  if (!soon.length && !activeGoals.length) return null;
+  if (!goals.data || !rec.data) return null;
+  // Ҳоло холӣ — корти даъват, то корбар бахши «Нақшаҳо»-ро ёбад
+  if (!soon.length && !activeGoals.length) {
+    return (
+      <Link to="/plans" className="card flex items-center gap-4 p-5 transition hover:border-brand-500/40" data-testid="plans-cta">
+        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-violet-500 to-blue-500 text-white">
+          <Target className="h-6 w-6" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-bold">{t('plansCtaTitle')}</span>
+          <span className="block text-xs text-slate-500">{t('plansCtaText')}</span>
+        </span>
+        <span className="shrink-0 text-sm font-bold text-brand-500">→</span>
+      </Link>
+    );
+  }
   return (
     <Card>
       <CardHeader
