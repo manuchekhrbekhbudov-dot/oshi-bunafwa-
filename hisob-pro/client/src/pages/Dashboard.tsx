@@ -1,4 +1,5 @@
 import { RoutinesPrompt } from '../components/Routines';
+import { PlansWidget } from './Plans';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
@@ -130,6 +131,7 @@ export default function DashboardPage() {
 
       <InstallBanner />
       <RoutinesPrompt />
+      <PlansWidget />
       <MissingRatesNote currencies={missing} />
 
       {!d ? (

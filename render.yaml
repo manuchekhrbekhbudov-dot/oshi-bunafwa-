@@ -1,5 +1,7 @@
 # Render Blueprint — HISOB PRO
 # Render.com → New → Blueprint → ҳамин репозиторийро интихоб кунед → Apply
+# Базаи ройгони Render баъди 30 рӯз нест мешавад → базаи асосӣ акнун Neon (neon.tech, ройгон ва доимӣ).
+# Ин база танҳо барои кӯчонидани маълумоти кӯҳна (OLD_DATABASE_URL) монда шудааст; баъд нест кардан мумкин.
 databases:
   - name: hisob-pro-db
     plan: free
@@ -28,7 +30,9 @@ services:
       # Токени боти Telegram аз @BotFather — дар Render дастӣ ворид мешавад, дар репозиторий НЕСТ
       - key: TELEGRAM_BOT_TOKEN
         sync: false
+      # Суроғаи базаи Neon (postgresql://...neon.tech/...?sslmode=require) — дастӣ дар Render
       - key: DATABASE_URL
-        fromDatabase:
-          name: hisob-pro-db
-          property: connectionString
+        sync: false
+      # Як бор: суроғаи базаи кӯҳнаи Render — ҳангоми оғоз ҳамаи маълумот ба базаи нав нусха мешавад
+      - key: OLD_DATABASE_URL
+        sync: false

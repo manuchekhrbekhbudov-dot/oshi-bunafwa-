@@ -18,8 +18,7 @@ import {
   Smartphone,
   Sun,
   Wallet,
-  X,
-} from 'lucide-react';
+  X, Target } from 'lucide-react';
 import { useInstall } from '../../lib/pwa';
 import { Logo } from './Logo';
 import { useI18n } from '../../i18n';
@@ -37,6 +36,7 @@ const NAV: { section: DictKey; items: { to: string; key: DictKey; icon: typeof L
       { to: '/expenses', key: 'nav_expenses', icon: ArrowUpRight },
       { to: '/accounts', key: 'nav_accounts', icon: Wallet },
       { to: '/debts', key: 'nav_debts', icon: HandCoins },
+      { to: '/plans', key: 'nav_plans', icon: Target },
     ],
   },
   {

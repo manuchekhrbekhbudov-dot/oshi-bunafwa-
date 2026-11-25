@@ -214,5 +214,13 @@ export interface Transfer {
 export interface Rate {
   currency: Currency;
   rate: string;
+  source: 'manual' | 'nbt' | 'market';
   updatedAt: string;
+}
+
+export interface RatesInfo {
+  base: Currency;
+  autoRates: boolean;
+  auto: { source: 'nbt' | 'market'; date: string } | null;
+  rates: Rate[];
 }

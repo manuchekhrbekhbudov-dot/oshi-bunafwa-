@@ -38,6 +38,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const KindPage = lazy(() => import('./pages/KindPage'));
 const History = lazy(() => import('./pages/History'));
 const Accounts = lazy(() => import('./pages/Accounts'));
+const Plans = lazy(() => import('./pages/Plans'));
 const Debts = lazy(() => import('./pages/Debts'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Settings = lazy(() => import('./pages/Settings'));
@@ -74,6 +75,7 @@ export default function App() {
           <Route path="history" element={<History />} />
           <Route path="accounts" element={<Accounts />} />
           <Route path="debts" element={<Debts />} />
+          <Route path="plans" element={<Plans />} />
           <Route path="reports" element={<Reports />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<NotFound />} />

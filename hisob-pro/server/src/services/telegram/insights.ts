@@ -197,6 +197,24 @@ export const T = {
     routineBad: '❌ Масалан нависед: <code>/routine Иловагӣ 16:00-18:00</code>',
     weekdays: ['Дш', 'Сш', 'Чш', 'Пш', 'Ҷм', 'Шн', 'Яш'],
     everyDay: 'ҳар рӯз',
+    goalAchieved: (title: string, target: string) => `🎉 <b>Табрик!</b> Мақсади «${esc(title)}» иҷро шуд — ${target} ҷамъ шуд! 👏`,
+    goalsTitle: '🎯 <b>Мақсадҳои пасандоз</b>',
+    goalsEmpty: '🎯 Ҳоло мақсад нест.\n\nДар сайт: <b>Нақшаҳо → Мақсади нав</b> (масалан «Телефон — 3000 смн»).',
+    goalLine: (title: string, saved: string, target: string, pct: number, perDay: string | null) =>
+      `• <b>${esc(title)}</b>: ${saved} / ${target} (${pct}%)${perDay ? `\n   ҳар рӯз ≈ ${perDay} гузоред` : ''}`,
+    goalsHint: '\nИлова ба пасандоз: <code>/goal 200</code> (ба мақсади аввал) ё <code>/goal 200 Телефон</code>',
+    goalAdded: (title: string, amount: string, saved: string, target: string, pct: number) =>
+      `✅ Ба «${esc(title)}» ${amount} гузошта шуд.\n🎯 Ҷамъ: <b>${saved}</b> / ${target} (${pct}%)`,
+    goalNotFound: '❌ Мақсад ёфт нашуд. /goal — рӯйхат',
+    recurringDue: (kind: 'INCOME' | 'EXPENSE', title: string, amount: string, account: string | null) =>
+      kind === 'INCOME'
+        ? `📅 Имрӯз рӯзи <b>«${esc(title)}»</b> — ${amount}.\nГирифтед? Тугмаро пахш кунед — даромад сабт мешавад${account ? ` (${esc(account)})` : ''}.`
+        : `📅 Имрӯз пардохти доимӣ: <b>«${esc(title)}»</b> — ${amount}.\nПардохт кардед? Тугмаро пахш кунед — хароҷот сабт мешавад${account ? ` (${esc(account)})` : ''}.`,
+    recurringPayBtn: (kind: 'INCOME' | 'EXPENSE') => (kind === 'INCOME' ? '✅ Гирифтам' : '✅ Пардохт шуд'),
+    recurringSkipBtn: '⏭ Ин моҳ не',
+    recurringPaid: (title: string, amount: string, account: string) => `✅ «${esc(title)}» — ${amount} сабт шуд (${esc(account)}).`,
+    recurringSkipped: (title: string) => `⏭ «${esc(title)}» ин моҳ гузаронида шуд.`,
+    recurringAlready: 'ℹ️ Ин моҳ аллакай сабт шудааст.',
     undoFail: 'Ин амалиётро бекор кардан мумкин нест (шояд аллакай нест шудааст).',
     noAccount: 'Аввал дар сайт ҳисоб (ҳамён) созед: <b>Ҳамёнҳо ва ҳисобҳо</b>.',
     balanceTitle: '💰 <b>Баланс</b>',
@@ -322,6 +340,24 @@ export const T = {
     routineBad: '❌ Напишите, например: <code>/routine Курсы 16:00-18:00</code>',
     weekdays: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
     everyDay: 'каждый день',
+    goalAchieved: (title: string, target: string) => `🎉 <b>Поздравляем!</b> Цель «${esc(title)}» достигнута — накоплено ${target}! 👏`,
+    goalsTitle: '🎯 <b>Цели накоплений</b>',
+    goalsEmpty: '🎯 Целей пока нет.\n\nНа сайте: <b>Планы → Новая цель</b> (например «Телефон — 3000 смн»).',
+    goalLine: (title: string, saved: string, target: string, pct: number, perDay: string | null) =>
+      `• <b>${esc(title)}</b>: ${saved} / ${target} (${pct}%)${perDay ? `\n   откладывайте ≈ ${perDay} в день` : ''}`,
+    goalsHint: '\nПополнить: <code>/goal 200</code> (первая цель) или <code>/goal 200 Телефон</code>',
+    goalAdded: (title: string, amount: string, saved: string, target: string, pct: number) =>
+      `✅ В «${esc(title)}» отложено ${amount}.\n🎯 Накоплено: <b>${saved}</b> / ${target} (${pct}%)`,
+    goalNotFound: '❌ Цель не найдена. /goal — список',
+    recurringDue: (kind: 'INCOME' | 'EXPENSE', title: string, amount: string, account: string | null) =>
+      kind === 'INCOME'
+        ? `📅 Сегодня день <b>«${esc(title)}»</b> — ${amount}.\nПолучили? Нажмите кнопку — доход запишется${account ? ` (${esc(account)})` : ''}.`
+        : `📅 Сегодня регулярный платёж: <b>«${esc(title)}»</b> — ${amount}.\nОплатили? Нажмите кнопку — расход запишется${account ? ` (${esc(account)})` : ''}.`,
+    recurringPayBtn: (kind: 'INCOME' | 'EXPENSE') => (kind === 'INCOME' ? '✅ Получил' : '✅ Оплачено'),
+    recurringSkipBtn: '⏭ Не в этом месяце',
+    recurringPaid: (title: string, amount: string, account: string) => `✅ «${esc(title)}» — ${amount} записано (${esc(account)}).`,
+    recurringSkipped: (title: string) => `⏭ «${esc(title)}» пропущено в этом месяце.`,
+    recurringAlready: 'ℹ️ В этом месяце уже записано.',
     undoFail: 'Эту операцию нельзя отменить (возможно, она уже удалена).',
     noAccount: 'Сначала создайте счёт на сайте: <b>Кошельки и счета</b>.',
     balanceTitle: '💰 <b>Баланс</b>',
@@ -338,10 +374,10 @@ export const T = {
 
 const HELP_TG =
   '✍️ <b>Сабт бо як паём:</b>\n<code>50 хӯрок</code> — хароҷот\n<code>-20 такси</code> — хароҷот\n<code>+3000 маош</code> — даромад\nКатегория худкор муайян мешавад.\n📸 Сурат бо навиштаи <code>50 нон</code> — харид бо сурат.\n\n' +
-  '<b>Фармонҳо:</b>\n/today — ҳисоботи имрӯз\n/month — ҳисоботи ҳамин моҳ\n/balance — баланси ҳисобҳо\n/debts — қарзҳо\n/limit — меъёри хароҷоти рӯзона\n/daily — ҳисоботи 21:00 фаъол/хомӯш\n/routine — ҷадвали рӯз (хабар 5 дақиқа пеш аз баромадан)\n/code — коди барқарорсозии парол\n/stop — ҷудо кардани бот';
+  '<b>Фармонҳо:</b>\n/today — ҳисоботи имрӯз\n/month — ҳисоботи ҳамин моҳ\n/balance — баланси ҳисобҳо\n/debts — қарзҳо\n/limit — меъёри хароҷоти рӯзона\n/daily — ҳисоботи 21:00 фаъол/хомӯш\n/routine — ҷадвали рӯз (хабар 5 дақиқа пеш аз баромадан)\n/code — коди барқарорсозии парол\n/goal — мақсадҳои пасандоз\n/stop — ҷудо кардани бот';
 const HELP_RU =
   '✍️ <b>Запись одним сообщением:</b>\n<code>50 еда</code> — расход\n<code>-20 такси</code> — расход\n<code>+3000 зарплата</code> — доход\nКатегория определяется автоматически.\n📸 Фото с подписью <code>50 хлеб</code> — покупка с фото.\n\n' +
-  '<b>Команды:</b>\n/today — отчёт за сегодня\n/month — отчёт за месяц\n/balance — баланс счетов\n/debts — долги\n/limit — дневная норма расходов\n/daily — вкл/выкл отчёт в 21:00\n/routine — распорядок дня (напоминание за 5 мин до ухода)\n/code — код восстановления пароля\n/stop — отключить бота';
+  '<b>Команды:</b>\n/today — отчёт за сегодня\n/month — отчёт за месяц\n/balance — баланс счетов\n/debts — долги\n/limit — дневная норма расходов\n/daily — вкл/выкл отчёт в 21:00\n/routine — распорядок дня (напоминание за 5 мин до ухода)\n/code — код восстановления пароля\n/goal — цели накоплений\n/stop — отключить бота';
 T.tg.help = HELP_TG;
 T.ru.help = HELP_RU;
 

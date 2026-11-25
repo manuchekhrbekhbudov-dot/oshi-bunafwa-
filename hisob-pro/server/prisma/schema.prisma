@@ -84,6 +84,10 @@ model User {
   photos        TransactionPhoto[]
   routines      Routine[]
   routinesAskedAt DateTime? // саволи «пулро дар куҷо сарф мекунед?» пурсида шуд
+  autoRates     Boolean   @default(true) // қурби асъор худкор аз Бонки миллии Тоҷикистон
+  goals         Goal[]
+  goalContributions GoalContribution[]
+  recurring     RecurringPayment[]
 }
 
 model Session {
@@ -131,6 +135,7 @@ model Account {
   transfersTo    Transfer[]    @relation("TransferTo")
   debts          Debt[]
   debtPayments   DebtPayment[]
+  recurring      RecurringPayment[]
 
   @@index([userId])
 }
@@ -148,6 +153,7 @@ model Category {
 
   transactions Transaction[]
   routines     Routine[]
+  recurring    RecurringPayment[]
 
   @@unique([userId, kind, name])
   @@index([userId, kind])
@@ -251,6 +257,7 @@ model ExchangeRate {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   currency  Currency
   rate      Decimal  @db.Decimal(18, 6)
+  source    String   @default("manual") // manual | nbt (Бонки миллӣ) | market (захира)
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
 
@@ -359,6 +366,64 @@ model Routine {
   lastLeaveDay  String?   // 'yyyy-MM-dd' — хабари имрӯза фиристода шуд
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+/// Мақсади пасандоз: «Телефон — 3000 смн то 1 март». Пасандоз маблағи ҷудошуда аст —
+/// хароҷот ҳисоб намешавад ва ба даромаду хароҷот дохил намешавад.
+model Goal {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title      String
+  target     Decimal   @db.Decimal(18, 2)
+  currency   Currency  @default(TJS)
+  deadline   DateTime? // санаи охир (ихтиёрӣ)
+  color      String    @default("#8b5cf6")
+  achievedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  contributions GoalContribution[]
+
+  @@index([userId])
+}
+
+model GoalContribution {
+  id        String   @id @default(cuid())
+  goalId    String
+  goal      Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Decimal  @db.Decimal(18, 2) // манфӣ — гирифтан аз пасандоз
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([goalId])
+}
+
+/// Пардохти доимӣ (ҳар моҳ): иҷора, интернет, телефон… ё даромади доимӣ (маош).
+/// Дар рӯзи муайян бот ёдрас мекунад; бо тугмаи «✅» амалиёт сабт мешавад.
+model RecurringPayment {
+  id            String        @id @default(cuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String
+  type          CategoryKind  @default(EXPENSE)
+  amount        Decimal       @db.Decimal(18, 2)
+  currency      Currency      @default(TJS)
+  accountId     String?
+  account       Account?      @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  categoryId    String?
+  category      Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  dayOfMonth    Int           // 1–31 (агар моҳ кӯтоҳ бошад — рӯзи охир)
+  active        Boolean       @default(true)
+  lastRemindKey String?       // 'yyyy-MM' — ёдраскунии ин моҳ фиристода шуд
+  lastPaidKey   String?       // 'yyyy-MM' — ин моҳ сабт шуд
+  lastSkipKey   String?       // 'yyyy-MM' — ин моҳ гузаронида шуд
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   @@index([userId])
 }

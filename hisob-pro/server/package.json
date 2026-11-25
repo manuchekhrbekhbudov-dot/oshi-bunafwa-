@@ -12,7 +12,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "db:migrate": "prisma migrate dev",
-    "db:deploy": "prisma migrate deploy",
+    "db:deploy": "node scripts/migrate.mjs",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate",

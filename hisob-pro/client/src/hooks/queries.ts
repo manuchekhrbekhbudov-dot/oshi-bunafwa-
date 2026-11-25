@@ -10,7 +10,7 @@ import type {
   DebtSummary,
   Paged,
   PeriodReport,
-  Rate,
+  RatesInfo,
   TotalBalance,
   Transaction,
   Transfer,
@@ -86,7 +86,7 @@ export const useTransfers = () =>
   });
 
 export const useRates = () =>
-  useQuery({ queryKey: ['rates'], queryFn: () => api.get<{ base: string; rates: Rate[] }>('/rates') });
+  useQuery({ queryKey: ['rates'], queryFn: () => api.get<RatesInfo>('/rates') });
 
 /** Мутатсияи умумӣ, ки баъди муваффақият маълумотро нав мекунад */
 export function useFinanceMutation<TVars, TRes = unknown>(fn: (v: TVars) => Promise<TRes>, extraKeys: string[][] = []) {

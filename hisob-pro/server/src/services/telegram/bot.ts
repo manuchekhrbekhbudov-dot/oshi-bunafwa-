@@ -28,6 +28,8 @@ import { detectImageMime, MAX_PHOTO_BYTES, purchasePhotos, savePhoto } from '../
 import { attachPendingToChat, completeRegistrationFromContact } from '../registration.js';
 import { initialMarks, normalizeTime, routineDue } from '../routines.js';
 import { issueResetCode, RESET_CODE_TTL_MIN } from '../passwordReset.js';
+import { goalStats, recurringReminderDue } from '../plans.js';
+import { contributeToGoal, payRecurring, skipRecurring } from '../planActions.js';
 import { normalizePhone } from '../registration.js';
 import {
   alertMessage,
@@ -94,6 +96,7 @@ export async function setupWebhook(publicUrl: string) {
       { command: 'daily', description: 'Ҳисоботи 21:00 / Отчёт в 21:00' },
       { command: 'routine', description: 'Ҷадвали рӯз / Распорядок дня' },
       { command: 'code', description: 'Коди пароли нав / Код для пароля' },
+      { command: 'goal', description: 'Мақсадҳои пасандоз / Цели накоплений' },
       { command: 'help', description: 'Кӯмак / Помощь' },
     ],
   }).catch(() => undefined);
@@ -481,6 +484,69 @@ async function addRoutineFromText(userId: string, input: string) {
   return r;
 }
 
+/* ------------------------------ Пардохтҳои доимӣ ------------------------------ */
+
+/** Аз соати 09:00-и рӯзи пардохт: «📅 Имрӯз пардохти «Иҷора» — 1500 смн» бо тугмаҳои ✅ / ⏭ */
+export async function sendRecurringReminders(now = new Date()) {
+  const today = todayKey(now);
+  const month = today.slice(0, 7);
+  const hour = localHour(now);
+  const list = await prisma.recurringPayment.findMany({
+    where: { active: true, user: { telegram: { isNot: null } } },
+    include: { account: { select: { name: true } }, user: { select: { language: true, telegram: true } } },
+  });
+  let sent = 0;
+  for (const r of list) {
+    const link = r.user.telegram;
+    if (!link || !recurringReminderDue(r, today, hour)) continue;
+    const claimed = await prisma.recurringPayment.updateMany({
+      where: { id: r.id, OR: [{ lastRemindKey: null }, { lastRemindKey: { not: month } }] },
+      data: { lastRemindKey: month },
+    });
+    if (claimed.count !== 1) continue;
+    const lang: Lang = r.user.language === 'ru' ? 'ru' : 'tg';
+    const t = T[lang];
+    try {
+      await send(link.chatId, t.recurringDue(r.type, r.title, fmt(r.amount, r.currency), r.account?.name ?? null), {
+        reply_markup: {
+          inline_keyboard: [[
+            { text: t.recurringPayBtn(r.type), callback_data: `rp:pay:${r.id}` },
+            { text: t.recurringSkipBtn, callback_data: `rp:skip:${r.id}` },
+          ]],
+        },
+      });
+      sent++;
+    } catch (e) {
+      console.error('[telegram] recurring reminder failed', e);
+      await prisma.recurringPayment.update({ where: { id: r.id }, data: { lastRemindKey: r.lastRemindKey } });
+    }
+  }
+  return { sent };
+}
+
+/** /goal — рӯйхат; /goal 200 [ном] — пул ба мақсад */
+async function goalCommand(userId: string, lang: Lang, args: string[]) {
+  const t = T[lang];
+  const goals = await prisma.goal.findMany({ where: { userId }, include: { contributions: { select: { amount: true } } }, orderBy: { createdAt: 'asc' } });
+  if (!args.length) {
+    if (!goals.length) return t.goalsEmpty;
+    const lines = goals.map((g) => {
+      const st = goalStats(g, g.contributions);
+      return t.goalLine(g.title, fmt(st.saved, g.currency), fmt(g.target, g.currency), st.progress, st.perDay ? fmt(st.perDay, g.currency) : null);
+    });
+    return [t.goalsTitle, '', ...lines, t.goalsHint].join('\n');
+  }
+  const amount = parseUserAmount(args[0].replace(/^[+]/, ''));
+  const negative = args[0].startsWith('-');
+  if (!amount) return t.badAmount;
+  const name = args.slice(1).join(' ').trim().toLowerCase();
+  const goal = name ? goals.find((g) => g.title.toLowerCase().includes(name)) : goals.find((g) => !g.achievedAt) ?? goals[0];
+  if (!goal) return goals.length ? t.goalNotFound : t.goalsEmpty;
+  const value = negative ? `-${amount}` : amount;
+  const r = await contributeToGoal(userId, goal.id, value, 'Telegram');
+  return t.goalAdded(goal.title, fmt(value, goal.currency), fmt(r.stats.saved, goal.currency), fmt(goal.target, goal.currency), r.stats.progress);
+}
+
 export async function runScheduledJobs(now = new Date()) {
   const safe = async <R>(name: string, fn: () => Promise<R>) => {
     try {
@@ -492,6 +558,7 @@ export async function runScheduledJobs(now = new Date()) {
   };
   return {
     routines: await safe('routines', () => sendRoutineReminders(now)),
+    recurring: await safe('recurring', () => sendRecurringReminders(now)),
     reminders: await safe('reminders', () => sendDebtReminders(now)),
     monthly: await safe('monthly', () => sendMonthlyReports(now)),
     daily: await safe('daily', () => sendDailySummaries(now)),
@@ -722,6 +789,22 @@ export async function handleUpdate(update: TgUpdate) {
       await send(chatId, T[lang].askIncome, { reply_markup: skipKeyboard(lang) });
     } else if (data === 'income:skip') {
       await finishOnboarding(chatId, link.userId, lang);
+    } else if (data.startsWith('rp:pay:') || data.startsWith('rp:skip:')) {
+      const t = T[lang];
+      const id = data.split(':')[2];
+      try {
+        if (data.startsWith('rp:pay:')) {
+          const r = await payRecurring(link.userId, id);
+          await send(chatId, t.recurringPaid(r.recurring.title, fmt(r.tx.amount, r.tx.currency), r.account.name));
+          if (r.tx.type === 'EXPENSE') await checkSpendingAlert(link.userId).catch(() => undefined);
+        } else {
+          const r = await skipRecurring(link.userId, id);
+          await send(chatId, t.recurringSkipped(r.title));
+        }
+      } catch (e) {
+        const code = (e as { code?: string }).code;
+        await send(chatId, code === 'ALREADY_PAID' ? t.recurringAlready : `❌ ${(e as Error).message}`);
+      }
     } else if (data.startsWith('rt:none:')) {
       await prisma.telegramLink.update({ where: { id: link.id }, data: { pendingRoutineId: null, pendingRoutineAt: null } });
       await send(chatId, T[lang].routineNoneOk);
@@ -913,6 +996,9 @@ export async function handleUpdate(update: TgUpdate) {
       if (!u.phone) await send(chatId, t.askPhone, { reply_markup: phoneKeyboard(lang) });
       return;
     }
+    case 'goal':
+    case 'goals':
+      return send(chatId, await goalCommand(link.userId, lang, args));
     case 'routine':
     case 'routines': {
       if (!args.length) return send(chatId, await routinesMessage(link.userId, lang));

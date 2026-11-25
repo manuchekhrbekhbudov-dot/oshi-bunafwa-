@@ -4,21 +4,58 @@ import { prisma } from '../lib/prisma.js';
 import { asyncHandler, parse, uid } from '../lib/http.js';
 import { CURRENCIES, Decimal, money } from '../lib/money.js';
 import { badRequest } from '../lib/errors.js';
+import { applyRatesToUser, latestRates, updateAutoRates } from '../services/rates.js';
 
 const router = Router();
+
+async function ratesPayload(userId: string) {
+  const [user, rates, latest] = await Promise.all([
+    prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { baseCurrency: true, autoRates: true } }),
+    prisma.exchangeRate.findMany({ where: { userId } }),
+    latestRates(),
+  ]);
+  return {
+    base: user.baseCurrency,
+    autoRates: user.autoRates,
+    // охирин қурби худкор: манбаъ (nbt — Бонки миллӣ) ва сана
+    auto: latest ? { source: latest.source, date: latest.date } : null,
+    rates: rates.map((r) => ({ currency: r.currency, rate: r.rate.toFixed(6), source: r.source, updatedAt: r.updatedAt })),
+  };
+}
 
 router.get(
   '/',
   asyncHandler(async (req, res) => {
+    res.json(await ratesPayload(uid(req)));
+  }),
+);
+
+/** Қурби худкор: фаъол/хомӯш. Ҳангоми фаъол кардан қурбҳо фавран гузошта мешаванд. */
+router.put(
+  '/auto',
+  asyncHandler(async (req, res) => {
     const userId = uid(req);
-    const [user, rates] = await Promise.all([
-      prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { baseCurrency: true } }),
-      prisma.exchangeRate.findMany({ where: { userId } }),
-    ]);
-    res.json({
-      base: user.baseCurrency,
-      rates: rates.map((r) => ({ currency: r.currency, rate: r.rate.toFixed(6), updatedAt: r.updatedAt })),
-    });
+    const { enabled } = parse(z.object({ enabled: z.boolean() }), req.body);
+    const user = await prisma.user.update({ where: { id: userId }, data: { autoRates: enabled }, select: { baseCurrency: true } });
+    if (enabled) {
+      const latest = (await latestRates()) ?? (await updateAutoRates({ force: true }).then((r) => ('rates' in r ? r.rates : null)));
+      if (latest) await applyRatesToUser(userId, user.baseCurrency, latest);
+    }
+    res.json(await ratesPayload(userId));
+  }),
+);
+
+/** «Навсозӣ»: қурбҳои имрӯзаро аз нав мегирад */
+router.post(
+  '/refresh',
+  asyncHandler(async (req, res) => {
+    const userId = uid(req);
+    try {
+      await updateAutoRates({ force: true });
+    } catch (e) {
+      throw badRequest('RATES_UNAVAILABLE', 'Қурбро гирифта нашуд. Баъдтар кӯшиш кунед.');
+    }
+    res.json(await ratesPayload(userId));
   }),
 );
 
@@ -46,16 +83,17 @@ router.put(
       ops.push(
         prisma.exchangeRate.upsert({
           where: { userId_currency: { userId, currency: cur } },
-          create: { userId, currency: cur, rate: s },
-          update: { rate: s },
+          create: { userId, currency: cur, rate: s, source: 'manual' },
+          update: { rate: s, source: 'manual' },
         }),
       );
     }
+    // Қурби дастӣ → худкор хомӯш мешавад (вагарна пагоҳ қурби бонк онро иваз мекунад)
+    ops.push(prisma.user.update({ where: { id: userId }, data: { autoRates: false } }));
     await prisma.$transaction(ops);
     const all = await prisma.exchangeRate.findMany({ where: { userId } });
     res.json({
-      base: user.baseCurrency,
-      rates: all.map((r) => ({ currency: r.currency, rate: r.rate.toFixed(6), updatedAt: r.updatedAt })),
+      ...(await ratesPayload(userId)),
       sample: all.map((r) => `1 ${r.currency} = ${money(r.rate)} ${user.baseCurrency}`),
     });
   }),

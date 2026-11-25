@@ -150,18 +150,70 @@ function RatesCard() {
       setLoading(false);
     }
   };
+  const d = rates.data;
+  const setAuto = async (enabled: boolean) => {
+    try {
+      await api.put('/rates/auto', { enabled });
+      await qc.invalidateQueries({ queryKey: ['rates'] });
+      await invalidate();
+      toast(t('saved'));
+    } catch (err) {
+      toast(err instanceof Error ? err.message : String(err), 'error');
+    }
+  };
+  const refresh = async () => {
+    setLoading(true);
+    try {
+      await api.post('/rates/refresh');
+      await qc.invalidateQueries({ queryKey: ['rates'] });
+      await invalidate();
+      toast(t('ratesUpdated'));
+    } catch (err) {
+      toast(err instanceof Error ? err.message : String(err), 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <Card>
       <div id="rates" />
       <CardHeader title={t('exchangeRates')} subtitle={t('ratesHint')} icon={<Coins className="h-4 w-4" />} />
-      <form onSubmit={submit} className="space-y-4 p-5">
-        {others.map((c) => (
-          <Field key={c} label={`1 ${c} =`} error={errors[c]}>
-            <Input inputMode="decimal" value={values[c] ?? ''} onChange={(e) => setValues((v) => ({ ...v, [c]: e.target.value }))} trailing={base} placeholder="—" invalid={!!errors[c]} />
-          </Field>
-        ))}
-        <Button type="submit" loading={loading}>{t('save')}</Button>
-      </form>
+      <div className="space-y-4 p-5">
+        {/* Қурби худкор аз Бонки миллии Тоҷикистон */}
+        <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3 dark:border-white/10">
+          <span>
+            <span className="block text-sm font-medium">{t('ratesAuto')}</span>
+            <span className="block text-xs text-slate-500">
+              {d?.auto ? t('ratesAutoInfo', { s: t(d.auto.source === 'nbt' ? 'rateSrc_nbt' : 'rateSrc_market'), d: d.auto.date.split('-').reverse().join('.') }) : t('ratesAutoHint')}
+            </span>
+          </span>
+          <input type="checkbox" className="h-5 w-5 shrink-0 accent-violet-600" checked={!!d?.autoRates} onChange={(e) => setAuto(e.target.checked)} />
+        </label>
+        {d?.autoRates ? (
+          <div className="space-y-2">
+            {others.map((c) => {
+              const r = d.rates.find((x) => x.currency === c);
+              return (
+                <div key={c} className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-2.5 text-sm dark:bg-white/[0.03]">
+                  <span className="font-semibold">1 {c}</span>
+                  <span className="num font-bold">{r ? `${Number(r.rate)} ${base}` : '—'}</span>
+                </div>
+              );
+            })}
+            <Button variant="secondary" size="sm" loading={loading} onClick={refresh}>{t('ratesRefresh')}</Button>
+          </div>
+        ) : (
+          <form onSubmit={submit} className="space-y-4">
+            {others.map((c) => (
+              <Field key={c} label={`1 ${c} =`} error={errors[c]}>
+                <Input inputMode="decimal" value={values[c] ?? ''} onChange={(e) => setValues((v) => ({ ...v, [c]: e.target.value }))} trailing={base} placeholder="—" invalid={!!errors[c]} />
+              </Field>
+            ))}
+            <p className="text-xs text-slate-500">{t('ratesManualHint')}</p>
+            <Button type="submit" loading={loading}>{t('save')}</Button>
+          </form>
+        )}
+      </div>
     </Card>
   );
 }

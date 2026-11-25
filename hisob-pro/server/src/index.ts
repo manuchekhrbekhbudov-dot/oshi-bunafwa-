@@ -1,7 +1,18 @@
 import { createApp } from './app.js';
 import { config } from './config.js';
 import { prisma } from './lib/prisma.js';
+import { updateAutoRates } from './services/rates.js';
+import { copyFromOldDatabase } from './services/dbCopy.js';
 import { runScheduledJobs, sendRoutineReminders, setupWebhook, telegramEnabled } from './services/telegram/bot.js';
+
+// Гузариш ба базаи нав: агар OLD_DATABASE_URL бошад ва базаи нав холӣ — ҳама маълумот нусха мешавад
+if (process.env.OLD_DATABASE_URL?.trim() && process.env.OLD_DATABASE_URL.trim() !== process.env.DATABASE_URL?.trim()) {
+  try {
+    await copyFromOldDatabase(process.env.OLD_DATABASE_URL.trim());
+  } catch (e) {
+    console.error('[db-copy] хатогӣ — маълумот кӯчонида нашуд:', (e as Error).message);
+  }
+}
 
 const app = createApp();
 
@@ -35,6 +46,11 @@ if (publicUrl && process.env.KEEP_ALIVE !== 'off') {
   }, 10 * 60_000).unref();
   console.log('  Keep-alive: ҳар 10 дақиқа');
 }
+
+// Қурби асъор аз Бонки миллии Тоҷикистон: як бор дар рӯз (ҳар соат санҷида мешавад)
+const ratesTick = () => updateAutoRates().catch((e) => console.error('[rates]', e.message));
+setTimeout(ratesTick, 20_000).unref();
+setInterval(ratesTick, 60 * 60_000).unref();
 
 // Тоза кардани сессияҳои кӯҳна ҳар 6 соат
 setInterval(() => {

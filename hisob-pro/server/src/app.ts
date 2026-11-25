@@ -18,6 +18,8 @@ import reportRoutes from './routes/reports.js';
 import rateRoutes from './routes/rates.js';
 import telegramRoutes from './routes/telegram.js';
 import routineRoutes from './routes/routines.js';
+import goalRoutes from './routes/goals.js';
+import recurringRoutes from './routes/recurring.js';
 
 export function createApp() {
   const app = express();
@@ -54,6 +56,8 @@ export function createApp() {
   api.use('/reports', requireAuth, reportRoutes);
   api.use('/rates', requireAuth, rateRoutes);
   api.use('/routines', requireAuth, routineRoutes);
+  api.use('/goals', requireAuth, goalRoutes);
+  api.use('/recurring', requireAuth, recurringRoutes);
   api.use('/telegram', telegramRoutes); // webhook ва tick — ҷамъиятӣ; танзимот — бо requireAuth
   api.use(notFoundHandler);
   app.use('/api', api);
